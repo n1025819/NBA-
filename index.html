@@ -101,24 +101,24 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 }
 .roster-card{
   position:relative;
-  background:linear-gradient(160deg,#0f1222 0%,#191d2f 55%,#0b0e19 100%);
+  background:rgba(255,255,255,.08);
   border:2px solid rgba(236,201,105,.72);
   border-radius:14px;padding:0;overflow:hidden;
-  box-shadow:0 10px 20px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.15);
+  box-shadow:0 10px 20px rgba(0,0,0,.35);
   text-align:center
 }
 .roster-card::before{
-  content:"";
-  position:absolute;inset:0;
-  background:linear-gradient(145deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,0) 36%);
+  content:none;
+  position:static;inset:auto;
+  background:none;
   pointer-events:none;
 }
 .roster-card::after{
-  content:"";
-  position:absolute;left:-30%;bottom:18%;
-  width:170%;height:35%;
-  background:linear-gradient(90deg,rgba(246,207,88,.0) 0%,rgba(246,207,88,.24) 45%,rgba(246,207,88,0) 100%);
-  transform:rotate(-8deg);
+  content:none;
+  position:static;left:auto;bottom:auto;
+  width:auto;height:auto;
+  background:none;
+  transform:none;
   pointer-events:none;
 }
 .roster-card img{
