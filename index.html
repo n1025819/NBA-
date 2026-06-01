@@ -132,6 +132,21 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
   color:#ffdd6c;text-shadow:0 2px 0 #000;
   background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.7) 100%)
 }
+.picked{
+  max-width:1200px;margin:6px auto 24px;padding:0 12px;text-align:left;
+  display:grid;grid-template-columns:1fr;gap:12px;
+}
+.picked h3{margin:10px 0;color:#ffdd6c}
+.picked-row{
+  display:flex;gap:10px;overflow-x:auto;padding-bottom:4px
+}
+.picked-card{
+  min-width:120px;max-width:120px;
+  border:2px solid rgba(68,209,122,.75);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.08);
+  flex:0 0 auto;
+}
+.picked-card img{width:100%;height:100px;object-fit:cover;object-position:center 18%;display:block}
+.picked-card div{padding:6px;font-size:14px;font-weight:700;text-align:center}
 @media (max-width: 900px){
   .roster{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
@@ -160,6 +175,11 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 
   <div class="panel">
     <div class="controls">
+      <input id="xlsxInput" type="file" accept=".xlsx,.xls" style="margin:6px"><br>
+      <select id="dateSelect" onchange="changeDate()">
+        <option value="06/23">06/23</option>
+        <option value="06/30">06/30</option>
+      </select>
       <select id="posSelect" onchange="changePosition()">
         <option value="C">中鋒 C</option>
         <option value="F">鋒線 F</option>
@@ -191,9 +211,20 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
     <div class="warn" id="note"></div>
   </div>
 </div>
+<div class="picked">
+  <div>
+    <h3>A 隊照片橫排</h3>
+    <div id="pickedA" class="picked-row"></div>
+  </div>
+  <div>
+    <h3>B 隊照片橫排</h3>
+    <div id="pickedB" class="picked-row"></div>
+  </div>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
-const players = [
+const defaultPlayers = [
   {name:"小馬", pos:"C", time:"全程", date:"全程", stars:3},
   {name:"Nash", pos:"F", time:"全程", date:"全程", stars:3},
   {name:"傑瑞", pos:"G", time:"全程", date:"全程", stars:3},
@@ -213,7 +244,9 @@ const players = [
   {name:"Jack", pos:"F", time:"全程", date:"06/23", stars:3}
 ];
 
-const playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
+let players = [...defaultPlayers];
+let playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
+let selectedDate = "06/23";
 
 function canJoinDate(player, date){
   return player.date==="全程" || player.date===date;
@@ -224,6 +257,7 @@ function canJoinSlot(player, slot){
 function buildPools(){
   const base = { C: [], F: [], G: [] };
   for(const p of players){
+    if(!canJoinDate(p, selectedDate)) continue;
     base[p.pos].push(p.name);
   }
   return base;
@@ -250,10 +284,10 @@ const playerPhotoPlaceholder =
 
 function photoCandidates(name){
   return [
-    `./照片/${name}.png`,
-    `./照片/${name}.jpg`,
-    `./照片/${name}.jpeg`,
-    `./照片/${name}.webp`
+    `./data/照片/${name}.png`,
+    `./data/照片/${name}.jpg`,
+    `./data/照片/${name}.jpeg`,
+    `./data/照片/${name}.webp`
   ];
 }
 
@@ -293,8 +327,10 @@ function attachPlayerAvatarFallbacks(){
 }
 
 function renderRosterGallery(){
+  const assigned = new Set([...allTeamPlayers("A"), ...allTeamPlayers("B")]);
+  const available = players.filter((p)=>canJoinDate(p, selectedDate) && !assigned.has(p.name));
   const box = document.getElementById("rosterPhotos");
-  box.innerHTML = players.map((p)=>{
+  box.innerHTML = available.map((p)=>{
     const safeName = p.name.replace(/"/g, "&quot;");
     const src = photoCandidates(p.name)[0];
     return `<div class="roster-card"><img class="player-avatar" style="object-position:${playerObjectPosition(p.name,"roster")}" src="${src}" alt="${safeName}" data-player="${safeName}" data-photo-index="0"><div class="roster-name">${p.name}</div></div>`;
@@ -302,7 +338,21 @@ function renderRosterGallery(){
   attachPlayerAvatarFallbacks();
 }
 
+function renderPickedRows(){
+  for(const t of ["A","B"]){
+    const box = document.getElementById(`picked${t}`);
+    const names = allTeamPlayers(t);
+    box.innerHTML = names.map((name)=>{
+      const safeName = name.replace(/"/g, "&quot;");
+      const src = photoCandidates(name)[0];
+      return `<div class="picked-card"><img class="player-avatar" style="object-position:${playerObjectPosition(name,"roster")}" src="${src}" alt="${safeName}" data-player="${safeName}" data-photo-index="0"><div>${name}</div></div>`;
+    }).join("");
+  }
+  attachPlayerAvatarFallbacks();
+}
+
 function resetGame(){
+  playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
   pools = buildPools();
   teams = {A:{C:[],F:[],G:[]}, B:{C:[],F:[],G:[]}};
   angle=0; spinning=false;
@@ -313,6 +363,12 @@ function resetGame(){
 function currentPos(){return document.getElementById("posSelect").value}
 function currentItems(){return pools[currentPos()]}
 function changePosition(){angle=0;draw();}
+function changeDate(){
+  selectedDate = document.getElementById("dateSelect").value;
+  resetGame();
+  renderRosterGallery();
+  renderPickedRows();
+}
 
 function total(team){return teams[team].C.length+teams[team].F.length+teams[team].G.length}
 function posCount(team,pos){return teams[team][pos].length}
@@ -375,7 +431,9 @@ function updateTeams(){
   document.getElementById("note").innerHTML =
     `目前：A隊 ${total("A")} 人（${teamStarTotal("A")}★），B隊 ${total("B")} 人（${teamStarTotal("B")}★）` +
     `，人數差距 ${diff}，星級差距 ${starDiff}<br>${left}<br>` +
-    `提醒：目前名單使用全員分隊。`;
+    `提醒：目前名單使用 ${selectedDate} 可出賽名單。`;
+  renderRosterGallery();
+  renderPickedRows();
 }
 
 function draw(){
@@ -470,8 +528,107 @@ function autoDraft(){
   document.getElementById("result").innerText="一鍵分隊完成";
 }
 
+function normalizePos(v){
+  const s = String(v || "").trim().toUpperCase();
+  if(s==="C" || s.includes("中鋒")) return "C";
+  if(s==="F" || s.includes("鋒")) return "F";
+  if(s==="G" || s.includes("後衛")) return "G";
+  return "";
+}
+
+function normalizeDate(v){
+  const s = String(v || "").trim();
+  if(!s || s==="全部" || s==="全程" || s.toLowerCase()==="all") return "全程";
+  const m = s.match(/(\d{1,2})[\/\-](\d{1,2})/);
+  if(!m) return "全程";
+  return `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}`;
+}
+
+function parseStars(starsValue, levelValue){
+  const fromStars = Number(String(starsValue ?? "").replace(/[^\d.]/g,""));
+  if(Number.isFinite(fromStars) && fromStars>0) return Math.max(1,Math.min(5,Math.round(fromStars)));
+  const lv = Number(String(levelValue ?? "").replace(/[^\d.]/g,""));
+  if(Number.isFinite(lv) && lv>0) return Math.max(1,Math.min(5,Math.round(lv)));
+  return 3;
+}
+
+function findKey(obj, aliases){
+  const keys = Object.keys(obj);
+  return keys.find((k)=>{
+    const normalized = k.toLowerCase().replace(/\s+/g,"");
+    return aliases.some((a)=>normalized.includes(a));
+  });
+}
+
+function loadPlayersFromSheet(file){
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    loadPlayersFromArrayBuffer(e.target.result, file.name);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function loadPlayersFromArrayBuffer(buffer, sourceLabel){
+  const wb = XLSX.read(buffer, {type:"array"});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
+
+  const parsed = rows.map((row)=>{
+    const nameKey = findKey(row, ["name","姓名","人員","名字"]);
+    const posKey = findKey(row, ["pos","position","位置"]);
+    const dateKey = findKey(row, ["date","日期"]);
+    const timeKey = findKey(row, ["time","時段"]);
+    const starsKey = findKey(row, ["stars","星","評分"]);
+    const levelKey = findKey(row, ["level","等級"]);
+
+    const name = String(row[nameKey] || "").trim();
+    const pos = normalizePos(row[posKey]);
+    if(!name || !pos) return null;
+
+    return {
+      name,
+      pos,
+      time: String(row[timeKey] || "全程").trim() || "全程",
+      date: normalizeDate(row[dateKey]),
+      stars: parseStars(row[starsKey], row[levelKey])
+    };
+  }).filter(Boolean);
+
+  if(parsed.length===0){
+    document.getElementById("result").innerText = "Excel 讀取失敗：找不到有效資料（需有姓名/位置）";
+    return false;
+  }
+
+  players = parsed;
+  resetGame();
+  renderRosterGallery();
+  renderPickedRows();
+  document.getElementById("result").innerText = `已載入 Excel：${sourceLabel}（${players.length} 人）`;
+  return true;
+}
+
+async function autoLoadDefaultSheet(){
+  const defaultPath = "./data/內運週二團第二季試辦比賽.xlsx";
+  try{
+    const res = await fetch(defaultPath);
+    if(!res.ok) return;
+    const buffer = await res.arrayBuffer();
+    loadPlayersFromArrayBuffer(buffer, "內運週二團第二季試辦比賽.xlsx");
+  }catch(e){
+    // 在 file:// 或路徑不可達時，保留手動上傳
+  }
+}
+
+document.getElementById("xlsxInput").addEventListener("change", (event)=>{
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  loadPlayersFromSheet(file);
+});
+
 resetGame();
 renderRosterGallery();
+renderPickedRows();
+autoLoadDefaultSheet();
 </script>
 </body>
 </html>
