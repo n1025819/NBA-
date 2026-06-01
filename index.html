@@ -175,11 +175,6 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 
   <div class="panel">
     <div class="controls">
-      <input id="xlsxInput" type="file" accept=".xlsx,.xls" style="margin:6px"><br>
-      <select id="dateSelect" onchange="changeDate()">
-        <option value="06/23">06/23</option>
-        <option value="06/30">06/30</option>
-      </select>
       <select id="posSelect" onchange="changePosition()">
         <option value="C">中鋒 C</option>
         <option value="F">鋒線 F</option>
@@ -246,10 +241,8 @@ const defaultPlayers = [
 
 let players = [...defaultPlayers];
 let playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
-let selectedDate = "06/23";
-
-function canJoinDate(player, date){
-  return player.date==="全程" || player.date===date;
+function canJoinDate(player){
+  return true;
 }
 function canJoinSlot(player, slot){
   return player.time==="全程" || player.time===slot;
@@ -257,7 +250,7 @@ function canJoinSlot(player, slot){
 function buildPools(){
   const base = { C: [], F: [], G: [] };
   for(const p of players){
-    if(!canJoinDate(p, selectedDate)) continue;
+    if(!canJoinDate(p)) continue;
     base[p.pos].push(p.name);
   }
   return base;
@@ -283,12 +276,20 @@ const playerPhotoPlaceholder =
   );
 
 function photoCandidates(name){
-  return [
-    `./data/照片/${name}.png`,
-    `./data/照片/${name}.jpg`,
-    `./data/照片/${name}.jpeg`,
-    `./data/照片/${name}.webp`
-  ];
+  const raw = String(name || "").trim();
+  const compact = raw.replace(/\s+/g, "");
+  const normalizedParens = raw
+    .replace(/\s*\(\s*/g, "(")
+    .replace(/\s*\)\s*/g, ")");
+  const baseNames = [...new Set([raw, compact, normalizedParens])];
+  const exts = ["png","jpg","jpeg","webp"];
+  const candidates = [];
+  for(const base of baseNames){
+    for(const ext of exts){
+      candidates.push(`./data/照片/${base}.${ext}`);
+    }
+  }
+  return candidates;
 }
 
 function playerObjectPosition(name, type="roster"){
@@ -328,7 +329,7 @@ function attachPlayerAvatarFallbacks(){
 
 function renderRosterGallery(){
   const assigned = new Set([...allTeamPlayers("A"), ...allTeamPlayers("B")]);
-  const available = players.filter((p)=>canJoinDate(p, selectedDate) && !assigned.has(p.name));
+  const available = players.filter((p)=>canJoinDate(p) && !assigned.has(p.name));
   const box = document.getElementById("rosterPhotos");
   box.innerHTML = available.map((p)=>{
     const safeName = p.name.replace(/"/g, "&quot;");
@@ -363,13 +364,6 @@ function resetGame(){
 function currentPos(){return document.getElementById("posSelect").value}
 function currentItems(){return pools[currentPos()]}
 function changePosition(){angle=0;draw();}
-function changeDate(){
-  selectedDate = document.getElementById("dateSelect").value;
-  resetGame();
-  renderRosterGallery();
-  renderPickedRows();
-}
-
 function total(team){return teams[team].C.length+teams[team].F.length+teams[team].G.length}
 function posCount(team,pos){return teams[team][pos].length}
 function allTeamPlayers(team){return [...teams[team].C,...teams[team].F,...teams[team].G]}
@@ -431,7 +425,7 @@ function updateTeams(){
   document.getElementById("note").innerHTML =
     `目前：A隊 ${total("A")} 人（${teamStarTotal("A")}★），B隊 ${total("B")} 人（${teamStarTotal("B")}★）` +
     `，人數差距 ${diff}，星級差距 ${starDiff}<br>${left}<br>` +
-    `提醒：目前名單使用 ${selectedDate} 可出賽名單。`;
+    `提醒：目前名單使用全體可出賽名單。`;
   renderRosterGallery();
   renderPickedRows();
 }
@@ -560,6 +554,28 @@ function findKey(obj, aliases){
   });
 }
 
+function normalizeHeaderCell(v){
+  return String(v || "").toLowerCase().replace(/\s+/g,"").trim();
+}
+
+function detectHeaderRowAndMap(table){
+  const maxScanRows = Math.min(20, table.length);
+  for(let i=0;i<maxScanRows;i++){
+    const row = table[i] || [];
+    const normalized = row.map(normalizeHeaderCell);
+    const nameIndex = normalized.findIndex((cell)=>["name","姓名","人員","名字"].some((a)=>cell.includes(a)));
+    const posIndex = normalized.findIndex((cell)=>["pos","position","位置"].some((a)=>cell.includes(a)));
+    if(nameIndex!==-1 && posIndex!==-1){
+      const dateIndex = normalized.findIndex((cell)=>["date","日期"].some((a)=>cell.includes(a)));
+      const timeIndex = normalized.findIndex((cell)=>["time","時段"].some((a)=>cell.includes(a)));
+      const starsIndex = normalized.findIndex((cell)=>["stars","星","評分"].some((a)=>cell.includes(a)));
+      const levelIndex = normalized.findIndex((cell)=>["level","等級"].some((a)=>cell.includes(a)));
+      return { headerRowIndex:i, nameIndex, posIndex, dateIndex, timeIndex, starsIndex, levelIndex };
+    }
+  }
+  return null;
+}
+
 function loadPlayersFromSheet(file){
   const reader = new FileReader();
   reader.onload = (e)=>{
@@ -572,27 +588,49 @@ function loadPlayersFromArrayBuffer(buffer, sourceLabel){
   const wb = XLSX.read(buffer, {type:"array"});
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
+  let parsed = [];
 
-  const parsed = rows.map((row)=>{
-    const nameKey = findKey(row, ["name","姓名","人員","名字"]);
-    const posKey = findKey(row, ["pos","position","位置"]);
-    const dateKey = findKey(row, ["date","日期"]);
-    const timeKey = findKey(row, ["time","時段"]);
-    const starsKey = findKey(row, ["stars","星","評分"]);
-    const levelKey = findKey(row, ["level","等級"]);
+  if(rows.length>0){
+    parsed = rows.map((row)=>{
+      const nameKey = findKey(row, ["name","姓名","人員","名字"]);
+      const posKey = findKey(row, ["pos","position","位置"]);
+      const dateKey = findKey(row, ["date","日期"]);
+      const timeKey = findKey(row, ["time","時段"]);
+      const starsKey = findKey(row, ["stars","星","評分"]);
+      const levelKey = findKey(row, ["level","等級"]);
 
-    const name = String(row[nameKey] || "").trim();
-    const pos = normalizePos(row[posKey]);
-    if(!name || !pos) return null;
+      const name = String(row[nameKey] || "").trim();
+      const pos = normalizePos(row[posKey]);
+      if(!name || !pos) return null;
 
-    return {
-      name,
-      pos,
-      time: String(row[timeKey] || "全程").trim() || "全程",
-      date: normalizeDate(row[dateKey]),
-      stars: parseStars(row[starsKey], row[levelKey])
-    };
-  }).filter(Boolean);
+      return {
+        name,
+        pos,
+        time: String(row[timeKey] || "全程").trim() || "全程",
+        date: normalizeDate(row[dateKey]),
+        stars: parseStars(row[starsKey], row[levelKey])
+      };
+    }).filter(Boolean);
+  }
+
+  if(parsed.length===0){
+    const table = XLSX.utils.sheet_to_json(ws, {header:1, defval:"", raw:false});
+    const map = detectHeaderRowAndMap(table);
+    if(map){
+      parsed = table.slice(map.headerRowIndex+1).map((row)=>{
+        const name = String(row[map.nameIndex] || "").trim();
+        const pos = normalizePos(row[map.posIndex]);
+        if(!name || !pos) return null;
+        return {
+          name,
+          pos,
+          time: String(row[map.timeIndex] || "全程").trim() || "全程",
+          date: normalizeDate(row[map.dateIndex]),
+          stars: parseStars(row[map.starsIndex], row[map.levelIndex])
+        };
+      }).filter(Boolean);
+    }
+  }
 
   if(parsed.length===0){
     document.getElementById("result").innerText = "Excel 讀取失敗：找不到有效資料（需有姓名/位置）";
@@ -619,11 +657,14 @@ async function autoLoadDefaultSheet(){
   }
 }
 
-document.getElementById("xlsxInput").addEventListener("change", (event)=>{
-  const file = event.target.files && event.target.files[0];
-  if(!file) return;
-  loadPlayersFromSheet(file);
-});
+const xlsxInput = document.getElementById("xlsxInput");
+if(xlsxInput){
+  xlsxInput.addEventListener("change", (event)=>{
+    const file = event.target.files && event.target.files[0];
+    if(!file) return;
+    loadPlayersFromSheet(file);
+  });
+}
 
 resetGame();
 renderRosterGallery();
