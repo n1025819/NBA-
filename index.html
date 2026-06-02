@@ -64,13 +64,18 @@ button{
 #resetBtn{background:#eee;box-shadow:0 6px 0 #999}
 select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 .result{font-size:26px;color:#ffcc00;text-align:center;min-height:36px;text-shadow:0 0 12px rgba(255,204,0,.6)}
-.teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.teams,.picked{
+  display:grid;
+  gap:12px;
+}
+.teams{grid-template-columns:repeat(var(--team-columns, 2), minmax(0, 1fr))}
 .team{
   border:3px solid #fff;border-radius:18px;padding:12px;
   background:linear-gradient(145deg,#17408B,#081b45);
   min-height:310px;
 }
 .team.b{background:linear-gradient(145deg,#C9082A,#570711)}
+.team.c{background:linear-gradient(145deg,#0f7a3c,#0a3a1d)}
 .team h2{margin:0 0 8px;text-align:center}
 .pos{margin:10px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.12)}
 .pos b{color:#ffcc00}
@@ -95,7 +100,7 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 }
 .stars{color:#ffd54a;margin-left:4px;letter-spacing:1px}
 .warn{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,204,0,.15);border:1px solid rgba(255,204,0,.7);line-height:1.7}
-.rules{font-size:14px;color:#ddd;line-height:1.7;text-align:center;margin:10px auto 18px;max-width:900px}
+.rules{font-size:14px;color:#ddd;line-height:1.7;text-align:center;margin:10px auto 18px;max-width:900px;white-space:pre-line}
 .roster{
   max-width:1200px;margin:8px auto 18px;padding:0 12px;
   display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px
@@ -135,8 +140,13 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 }
 .picked{
   max-width:1200px;margin:6px auto 24px;padding:0 12px;text-align:left;
-  display:grid;grid-template-columns:1fr;gap:12px;
+  display:flex;
+  flex-direction:column;
+  flex-wrap:nowrap;
+  gap:12px;
+  align-items:flex-start;
 }
+.picked > div{width:100%}
 .picked h3{margin:10px 0;color:#ffdd6c}
 .picked-row{
   display:flex;gap:10px;overflow-x:auto;padding-bottom:4px
@@ -160,10 +170,11 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 <div class="header">
   <div class="logo">BASKETBALL POSITION DRAFT</div>
   <h1>NBA 風格｜依位置輪盤分隊</h1>
-  <div class="sub">中鋒 / 鋒線 / 後衛 分開抽，盡量平均分到 A / B 隊</div>
+  <div class="sub">中鋒 / 鋒線 / 後衛 分開抽，支援 2 隊或 3 隊</div>
 </div>
 <div class="rules">
-  分隊邏輯：每個位置輪流抽，系統會同時平衡人數與星級總分，遇到限制會改放另一隊。
+  分隊邏輯：每個位置輪流抽，系統會同時平衡人數與星級總分，遇到限制會改放其他隊。
+  目前名單只保留 06/23（含全程）。
 </div>
 <div id="rosterPhotos" class="roster"></div>
 
@@ -176,6 +187,10 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 
   <div class="panel">
     <div class="controls">
+      <select id="teamCountSelect" onchange="changeTeamCount()">
+        <option value="2">2 隊分組</option>
+        <option value="3">3 隊分組</option>
+      </select><br>
       <select id="posSelect" onchange="changePosition()">
         <option value="C">中鋒 C</option>
         <option value="F">鋒線 F</option>
@@ -187,36 +202,12 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
     </div>
     <div id="result" class="result"></div>
 
-    <div class="teams">
-      <div class="team">
-        <h2>A 隊</h2>
-        <div class="pos"><b>中鋒：</b><div id="A_C"></div></div>
-        <div class="pos"><b>鋒線：</b><div id="A_F"></div></div>
-        <div class="pos"><b>後衛：</b><div id="A_G"></div></div>
-        <h3 id="A_total">總人數：0｜星級總分：0</h3>
-      </div>
-      <div class="team b">
-        <h2>B 隊</h2>
-        <div class="pos"><b>中鋒：</b><div id="B_C"></div></div>
-        <div class="pos"><b>鋒線：</b><div id="B_F"></div></div>
-        <div class="pos"><b>後衛：</b><div id="B_G"></div></div>
-        <h3 id="B_total">總人數：0｜星級總分：0</h3>
-      </div>
-    </div>
+    <div id="teamsContainer" class="teams"></div>
 
     <div class="warn" id="note"></div>
   </div>
 </div>
-<div class="picked">
-  <div>
-    <h3>A 隊照片橫排</h3>
-    <div id="pickedA" class="picked-row"></div>
-  </div>
-  <div>
-    <h3>B 隊照片橫排</h3>
-    <div id="pickedB" class="picked-row"></div>
-  </div>
-</div>
+<div id="pickedContainer" class="picked"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
@@ -242,8 +233,10 @@ const defaultPlayers = [
 
 let players = [...defaultPlayers];
 let playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
+const activeDate = "06/23";
+let teamCount = 2;
 function canJoinDate(player){
-  return true;
+  return player.date === "全程" || player.date === activeDate;
 }
 function canJoinSlot(player, slot){
   return player.time==="全程" || player.time===slot;
@@ -329,7 +322,7 @@ function attachPlayerAvatarFallbacks(){
 }
 
 function renderRosterGallery(){
-  const assigned = new Set([...allTeamPlayers("A"), ...allTeamPlayers("B")]);
+  const assigned = new Set(teamIds().reduce((list, team)=>list.concat(allTeamPlayers(team)), []));
   const available = players.filter((p)=>canJoinDate(p) && !assigned.has(p.name));
   const box = document.getElementById("rosterPhotos");
   box.innerHTML = available.map((p)=>{
@@ -341,10 +334,12 @@ function renderRosterGallery(){
 }
 
 function renderPickedRows(){
-  for(const t of ["A","B"]){
-    const box = document.getElementById(`picked${t}`);
+  const box = document.getElementById("pickedContainer");
+  box.innerHTML = teamIds().map((t)=>`<div><h3>${t} 隊照片橫排</h3><div id="picked${t}" class="picked-row"></div></div>`).join("");
+  for(const t of teamIds()){
+    const row = document.getElementById(`picked${t}`);
     const names = allTeamPlayers(t);
-    box.innerHTML = names.map((name)=>{
+    row.innerHTML = names.map((name)=>{
       const safeName = name.replace(/"/g, "&quot;");
       const src = photoCandidates(name)[0];
       return `<div class="picked-card"><img class="player-avatar" style="object-position:${playerObjectPosition(name,"roster")}" src="${src}" alt="${safeName}" data-player="${safeName}" data-photo-index="0"><div>${name}</div></div>`;
@@ -353,14 +348,48 @@ function renderPickedRows(){
   attachPlayerAvatarFallbacks();
 }
 
+function teamIds(){
+  return teamCount===3 ? ["A","B","C"] : ["A","B"];
+}
+
+function teamClass(team){
+  if(team==="B") return "b";
+  if(team==="C") return "c";
+  return "";
+}
+
+function positionLabel(pos){
+  return pos==="C" ? "中鋒" : pos==="F" ? "鋒線" : "後衛";
+}
+
+function renderTeamLayout(){
+  const ids = teamIds();
+  document.documentElement.style.setProperty("--team-columns", String(ids.length));
+  document.getElementById("teamsContainer").innerHTML = ids.map((t)=>`
+    <div class="team ${teamClass(t)}">
+      <h2>${t} 隊</h2>
+      <div class="pos"><b>中鋒：</b><div id="${t}_C"></div></div>
+      <div class="pos"><b>鋒線：</b><div id="${t}_F"></div></div>
+      <div class="pos"><b>後衛：</b><div id="${t}_G"></div></div>
+      <h3 id="${t}_total">總人數：0｜星級總分：0</h3>
+    </div>
+  `).join("");
+  renderPickedRows();
+}
+
 function resetGame(){
   playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
   pools = buildPools();
-  teams = {A:{C:[],F:[],G:[]}, B:{C:[],F:[],G:[]}};
+  teams = Object.fromEntries(teamIds().map((t)=>[t,{C:[],F:[],G:[]}]));
   angle=0; spinning=false;
   document.getElementById("result").innerText="";
   updateTeams();
   draw();
+}
+function changeTeamCount(){
+  teamCount = Number(document.getElementById("teamCountSelect").value || "2");
+  renderTeamLayout();
+  resetGame();
 }
 function currentPos(){return document.getElementById("posSelect").value}
 function currentItems(){return pools[currentPos()]}
@@ -384,7 +413,7 @@ function hasConflict(player, team){
 }
 
 function chooseTeam(player,pos){
-  let candidates = ["A","B"].filter(t=>!hasConflict(player,t));
+  let candidates = teamIds().filter(t=>!hasConflict(player,t));
   if(candidates.length===0) return null;
 
   candidates.sort((x,y)=>{
@@ -407,7 +436,7 @@ function assign(player,pos){
 }
 
 function updateTeams(){
-  for(const t of ["A","B"]){
+  for(const t of teamIds()){
     for(const p of ["C","F","G"]){
       document.getElementById(`${t}_${p}`).innerHTML =
         teams[t][p].map(playerChipHtml).join("");
@@ -417,16 +446,17 @@ function updateTeams(){
   attachPlayerAvatarFallbacks();
 
   const left = Object.entries(pools).map(([p,arr])=>{
-    const name = p==="C"?"中鋒":p==="F"?"鋒線":"後衛";
-    return `${name}剩餘 ${arr.length} 人`;
+    return `${positionLabel(p)}剩餘 ${arr.length} 人`;
   }).join("｜");
 
-  const diff = Math.abs(total("A")-total("B"));
-  const starDiff = Math.abs(teamStarTotal("A")-teamStarTotal("B"));
+  const totals = teamIds().map((t)=>total(t));
+  const stars = teamIds().map((t)=>teamStarTotal(t));
+  const diff = Math.max(...totals)-Math.min(...totals);
+  const starDiff = Math.max(...stars)-Math.min(...stars);
   document.getElementById("note").innerHTML =
-    `目前：A隊 ${total("A")} 人（${teamStarTotal("A")}★），B隊 ${total("B")} 人（${teamStarTotal("B")}★）` +
+    `目前：${teamIds().map((t)=>`${t}隊 ${total(t)} 人（${teamStarTotal(t)}★）`).join("，")}` +
     `，人數差距 ${diff}，星級差距 ${starDiff}<br>${left}<br>` +
-    `提醒：目前名單使用全體可出賽名單。`;
+    `提醒：目前名單只保留 06/23（含全程）。`;
   renderRosterGallery();
   renderPickedRows();
 }
@@ -667,9 +697,8 @@ if(xlsxInput){
   });
 }
 
+renderTeamLayout();
 resetGame();
-renderRosterGallery();
-renderPickedRows();
 autoLoadDefaultSheet();
 </script>
 </body>
