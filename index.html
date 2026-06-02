@@ -80,12 +80,12 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 .pos{margin:10px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.12)}
 .pos b{color:#ffcc00}
 .player{
-  display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
   margin:4px;padding:5px 9px;background:rgba(255,255,255,.16);border-radius:999px;
-  max-width:100%;
-  white-space:normal;
+  width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+  white-space:normal;overflow-wrap:anywhere;word-break:break-word;
 }
-.player .stars{flex:0 0 auto}
+.player .stars{flex:0 0 auto;white-space:nowrap;margin-left:0}
 .player-avatar{
   width:24px;height:24px;border-radius:50%;object-fit:cover;
   object-position:center 18%;
@@ -103,6 +103,75 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 }
 .stars{color:#ffd54a;margin-left:4px;letter-spacing:.3px;font-size:.95em}
 .warn{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,204,0,.15);border:1px solid rgba(255,204,0,.7);line-height:1.7}
+.betting{
+  margin:12px 0 14px;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.07);
+}
+.betting-header{
+  width:100%;
+  border:0;
+  background:none;
+  color:#ffdd6c;
+  font-size:24px;
+  font-weight:900;
+  text-align:center;
+  cursor:pointer;
+}
+.betting-header:focus{outline:none}
+.betting-body{display:block}
+.betting-body.collapsed{display:none}
+.bet-controls{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;
+}
+.bet-controls input,.bet-controls select{
+  padding:10px;border-radius:10px;border:0;font-size:16px;min-width:120px
+}
+.bet-controls input{min-width:160px}
+.bet-controls button{padding:10px 16px;font-size:16px}
+.odds-row{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0 8px
+}
+.odds-chip{
+  padding:6px 10px;border-radius:999px;font-weight:900;
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.18)
+}
+.score-settle{
+  margin:12px 0 8px;
+  padding:12px;
+  border-radius:12px;
+  background:rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.16);
+  display:block;
+}
+.score-settle.collapsed{display:none}
+.score-settle h4{margin:0 0 10px;text-align:center;color:#ffdd6c}
+.score-inputs{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+  gap:8px;
+  align-items:center;
+}
+.score-inputs label{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.08)
+}
+.score-inputs input{
+  width:84px;padding:8px;border-radius:8px;border:0;font-size:16px
+}
+.bet-list{
+  margin-top:10px;max-height:220px;overflow:auto;text-align:left;
+  border-top:1px solid rgba(255,255,255,.18);padding-top:10px
+}
+.bet-item{
+  margin:6px 0;padding:8px 10px;border-radius:10px;
+  background:rgba(0,0,0,.22);line-height:1.45
+}
+.bet-item.win{border-left:4px solid #44d17a}
+.bet-item.lose{border-left:4px solid #ff6b6b}
+.bet-item.pending{border-left:4px solid #ffcc00}
 .rules{font-size:14px;color:#ddd;line-height:1.7;text-align:center;margin:10px auto 18px;max-width:900px;white-space:pre-line}
 .roster{
   max-width:1440px;margin:8px auto 18px;padding:0 12px;
@@ -212,6 +281,35 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 </div>
 <div id="pickedContainer" class="picked"></div>
 
+<div class="panel" style="max-width:1440px;margin:0 auto 24px;padding:0 12px;">
+  <div class="betting">
+    <button id="bettingToggleBtn" class="betting-header" onclick="toggleBettingArea()">測試區 ▼</button>
+    <div id="bettingBody" class="betting-body collapsed">
+      <div class="sub">測試規則：先下注，等比賽結束後再輸入實際比分，最後公布輸贏與派彩；實際派彩依總池分配，不會超過總下注金額。</div>
+      <div id="oddsDisplay" class="odds-row"></div>
+      <div class="bet-controls">
+        <input id="betNameInput" type="text" value="匿名" placeholder="測試者（匿名）">
+        <select id="betTeamSelect"></select>
+        <input id="betAmountInput" type="number" min="1" step="1" value="100" placeholder="測試金額">
+        <button id="betBtn" onclick="placeBet()">測試下注</button>
+        <button id="betResetBtn" onclick="resetBets()">重置測試</button>
+      </div>
+      <div id="scoreSettleBox" class="score-settle">
+        <h4>賽後比分</h4>
+        <div class="sub">比賽進行中先測試下注；真的結束後，先按「比賽已結束」，再輸入實際比分公布輸贏與派彩。</div>
+        <div class="bet-controls" style="margin:10px 0 8px">
+          <button id="finishMatchBtn" onclick="markMatchFinished()">比賽已結束</button>
+        </div>
+        <div id="scoreInputs" class="score-inputs"></div>
+        <div class="bet-controls" style="margin-top:10px">
+          <button id="settleScoreBtn" onclick="settleByFinalScores()">公布輸贏並派彩</button>
+        </div>
+      </div>
+      <div id="betList" class="bet-list"></div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 const defaultPlayers = [
@@ -260,6 +358,11 @@ const conflicts = [
 ];
 
 let pools, teams, angle=0, spinning=false;
+const betStorageKey = "nba_draft_bets_v1";
+let bets = loadBetsFromStorage();
+let matchFinished = false;
+let gameEnded = false;
+let finalBetSummary = null;
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
 const cx=300, cy=300, r=256;
@@ -298,6 +401,414 @@ function playerObjectPosition(name, type="roster"){
     Carmelo: { roster: "center 5%", chip: "center 7%" }
   };
   return custom[name]?.[type] || "center 18%";
+}
+
+function loadBetsFromStorage(){
+  try{
+    const raw = localStorage.getItem(betStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function saveBetsToStorage(){
+  try{
+    localStorage.setItem(betStorageKey, JSON.stringify(bets));
+  }catch(e){}
+}
+
+function timeStamp(value){
+  const date = value ? new Date(value) : new Date();
+  const pad = (n)=>String(n).padStart(2,"0");
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function betOddsByTeam(){
+  const weights = Object.fromEntries(teamIds().map((t)=>{
+    const strength = total(t) * 0.55 + teamStarTotal(t) * 0.18;
+    return [t, 1 / (1 + strength)];
+  }));
+  const sum = teamIds().reduce((acc, t)=>acc + weights[t], 0) || 1;
+  const result = {};
+  for(const t of teamIds()){
+    const probability = weights[t] / sum;
+    result[t] = {
+      probability,
+      odds: Math.max(1.05, Number(((1 / probability) * 0.95).toFixed(2)))
+    };
+  }
+  return result;
+}
+
+function renderBetTeamOptions(){
+  const select = document.getElementById("betTeamSelect");
+  if(!select) return;
+  const previous = select.value || teamIds()[0];
+  select.innerHTML = teamIds().map((t)=>`<option value="${t}">${t}隊</option>`).join("");
+  if(teamIds().includes(previous)) select.value = previous;
+}
+
+function renderOdds(){
+  const box = document.getElementById("oddsDisplay");
+  if(!box) return;
+  const odds = betOddsByTeam();
+  box.innerHTML = teamIds().map((t)=>`
+    <span class="odds-chip">${t}隊 預估賠率 ${odds[t].odds.toFixed(2)}x｜機率 ${(odds[t].probability * 100).toFixed(1)}%</span>
+  `).join("");
+}
+
+function renderScoreInputs(){
+  const box = document.getElementById("scoreInputs");
+  if(!box) return;
+  const existingValues = Object.fromEntries(teamIds().map((team)=>[
+    team,
+    document.getElementById(`score_${team}`)?.value || ""
+  ]));
+  box.innerHTML = teamIds().map((t)=>`
+    <label>${t}隊 <input id="score_${t}" type="number" min="0" step="1" placeholder="比分" value="${existingValues[t] || ""}"></label>
+  `).join("");
+}
+
+function toggleBettingArea(){
+  const body = document.getElementById("bettingBody");
+  const button = document.getElementById("bettingToggleBtn");
+  if(!body || !button) return;
+  const collapsed = body.classList.toggle("collapsed");
+  button.textContent = collapsed ? "測試區 ▼" : "測試區 ▲";
+}
+
+function updateSettlementVisibility(){
+  const box = document.getElementById("scoreSettleBox");
+  if(!box) return;
+  box.style.display = "block";
+}
+
+function updateBetControlsState(){
+  const locked = matchFinished || gameEnded;
+  for(const id of ["betNameInput","betTeamSelect","betAmountInput","betBtn"]){
+    const element = document.getElementById(id);
+    if(element) element.disabled = locked;
+  }
+}
+
+function updateScoreControlsState(){
+  const enabled = matchFinished && !gameEnded;
+  for(const id of ["score_A","score_B","score_C","settleScoreBtn"]){
+    const element = document.getElementById(id);
+    if(element) element.disabled = !enabled;
+  }
+  const finishButton = document.getElementById("finishMatchBtn");
+  if(finishButton) finishButton.disabled = matchFinished || gameEnded;
+}
+
+function renderBetList(){
+  const box = document.getElementById("betList");
+  if(!box) return;
+  const rows = bets.slice().reverse();
+  if(rows.length===0){
+    box.innerHTML = `<div class="bet-item pending">尚無下注紀錄</div>`;
+    return;
+  }
+  box.innerHTML = rows.map((bet)=>{
+    const statusLabel = bet.status === "pending" ? "待公布" : bet.status === "win" ? "中獎" : bet.status === "cancelled" ? "已取消" : "未中";
+    const statusClass = bet.status === "pending" ? "pending" : bet.status === "win" ? "win" : bet.status === "cancelled" ? "pending" : "lose";
+    const payout = Number(bet.payout || 0);
+    return `
+      <div class="bet-item ${statusClass}">
+        <div><b>${bet.team}隊</b>｜金額 ${bet.amount}｜賠率 ${Number(bet.odds).toFixed(2)}x｜${statusLabel}</div>
+        <div>測試者：${bet.name || "匿名"}</div>
+        <div>測試時間：${timeStamp(bet.placedAt)}${bet.player ? `｜球員：${bet.player}` : ""}</div>
+        <div>${bet.resolvedAt ? `結算：${timeStamp(bet.resolvedAt)}｜實際隊伍：${bet.resultTeam || ""}隊｜派彩：${payout}` : "尚未結算"}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function refreshBetPanel(){
+  renderBetTeamOptions();
+  renderOdds();
+  renderScoreInputs();
+  updateSettlementVisibility();
+  updateBetControlsState();
+  updateScoreControlsState();
+  renderBetList();
+  const display = document.getElementById("betList");
+  if(display){
+    const pendingCount = bets.filter((bet)=>bet.status==="pending").length;
+    const settledCount = bets.filter((bet)=>bet.status!=="pending").length;
+    const summaryHtml = gameEnded && finalBetSummary
+      ? finalBetSummary.isTie
+        ? `<div class="bet-item pending">比賽結束｜比分平手｜${teamIds().map((t)=>`${t}隊 ${finalBetSummary.scores?.[t] ?? 0} 分`).join("，")}｜測試項目全數視為無效或依規則另行處理</div>`
+        : `<div class="bet-item win">比賽結束｜${finalBetSummary.winningTeam}隊獲勝｜${teamIds().map((t)=>`${t}隊 ${finalBetSummary.scores?.[t] ?? 0} 分`).join("，")}｜總池 ${finalBetSummary.totalPool}｜實際派彩倍率 ${finalBetSummary.payoutMultiplier.toFixed(2)}x｜中獎 ${finalBetSummary.winCount} 筆｜派彩 ${finalBetSummary.payoutTotal} 元｜未中 ${finalBetSummary.loseCount} 筆${finalBetSummary.cancelledCount ? `｜未配對 ${finalBetSummary.cancelledCount} 筆` : ""}</div>`
+      : matchFinished
+        ? `<div class="bet-item pending">比賽已結束｜請輸入實際比分再公布輸贏與派彩｜待測試 ${pendingCount} 筆</div>`
+        : `<div class="bet-item pending">比賽進行中｜待測試 ${pendingCount} 筆｜已處理 ${settledCount} 筆</div>`;
+    display.insertAdjacentHTML("afterbegin", summaryHtml);
+  }
+}
+
+function markMatchFinished(){
+  if(gameEnded){
+    alert("已經公布過輸贏了，請先重置再來一次");
+    return;
+  }
+  matchFinished = true;
+  refreshBetPanel();
+  document.getElementById("result").innerText = "比賽已結束，請輸入實際比分後公布輸贏與派彩";
+}
+
+function settleByFinalScores(){
+  if(gameEnded){
+    alert("已經公布過輸贏了，請先重置再重新結算");
+    return;
+  }
+  if(!matchFinished){
+    alert("請先按「比賽已結束」再輸入比分公布輸贏");
+    return;
+  }
+  const scores = parseFinalScores();
+  if(!scores){
+    alert("請先把每一隊的比分輸入完整且為 0 以上的數字");
+    return;
+  }
+  const summary = settleBetsByScores(scores);
+  const scoreText = teamIds().map((t)=>`${t}隊 ${scores[t]} 分`).join("，");
+  if(summary.isTie){
+    document.getElementById("result").innerText = `比分：${scoreText}｜平手，無勝隊，下注已取消或待規則處理`;
+  }else{
+    document.getElementById("result").innerText = `比分：${scoreText}｜${summary.winningTeam}隊獲勝｜總池 ${summary.totalPool}｜實際派彩倍率 ${summary.payoutMultiplier.toFixed(2)}x｜派彩 ${summary.payoutTotal} 元`;
+  }
+  updateSettlementVisibility();
+  refreshBetPanel();
+}
+
+function parseFinalScores(){
+  const scores = {};
+  for(const team of teamIds()){
+    const value = Number(document.getElementById(`score_${team}`)?.value);
+    if(!Number.isFinite(value) || value < 0) return null;
+    scores[team] = value;
+  }
+  return scores;
+}
+
+function determineWinningTeamByScores(scores){
+  const ranked = Object.entries(scores).sort((a,b)=>{
+    if(b[1] !== a[1]) return b[1] - a[1];
+    return a[0].localeCompare(b[0], "en");
+  });
+  const topScore = ranked[0]?.[1];
+  const tiedTeams = ranked.filter((item)=>item[1] === topScore).map((item)=>item[0]);
+  return tiedTeams.length === 1 ? tiedTeams[0] : null;
+}
+
+function settleBetsByScores(scores){
+  const winningTeam = determineWinningTeamByScores(scores);
+  let winCount = 0;
+  let loseCount = 0;
+  let payoutTotal = 0;
+  let cancelledCount = 0;
+  const settledAt = new Date().toISOString();
+  const totalPool = bets.reduce((sum, bet)=>sum + Number(bet.amount || 0), 0);
+  const pendingBets = bets.filter((bet)=>bet.status === "pending");
+  const winningBets = winningTeam ? pendingBets.filter((bet)=>bet.team === winningTeam) : [];
+  const winningStake = winningBets.reduce((sum, bet)=>sum + Number(bet.amount || 0), 0);
+  const payoutMap = new Map();
+
+  if(winningTeam && winningStake > 0){
+    const provisional = winningBets.map((bet)=>{
+      const exact = (Number(bet.amount || 0) * totalPool) / winningStake;
+      const base = Math.floor(exact);
+      return {
+        id: bet.id,
+        exact,
+        payout: base,
+        remainder: exact - base
+      };
+    });
+    let remaining = totalPool - provisional.reduce((sum, item)=>sum + item.payout, 0);
+    provisional.sort((a,b)=> b.remainder - a.remainder);
+    for(const item of provisional){
+      if(remaining<=0) break;
+      item.payout += 1;
+      remaining -= 1;
+    }
+    for(const item of provisional){
+      payoutMap.set(item.id, item.payout);
+    }
+  }
+
+  bets = bets.map((bet)=>{
+    if(bet.status !== "pending") return bet;
+    if(!winningTeam){
+      cancelledCount += 1;
+      return {
+        ...bet,
+        status: "cancelled",
+        resolvedAt: settledAt,
+        note: "比分平手，未產生勝隊",
+        payout: 0
+      };
+    }
+    const win = bet.team === winningTeam;
+    const payout = win ? Number(payoutMap.get(bet.id) || 0) : 0;
+    if(win){
+      winCount += 1;
+      payoutTotal += payout;
+    }else{
+      loseCount += 1;
+    }
+    return {
+      ...bet,
+      status: win ? "win" : "lose",
+      resultTeam: winningTeam,
+      resolvedAt: settledAt,
+      payout
+    };
+  });
+
+  saveBetsToStorage();
+  finalBetSummary = {
+    winningTeam: winningTeam || "平手",
+    isTie: !winningTeam,
+    scores,
+    totalPool,
+    winningStake,
+    winCount,
+    loseCount,
+    payoutTotal,
+    payoutMultiplier: winningStake > 0 ? totalPool / winningStake : 0,
+    cancelledCount
+  };
+  gameEnded = true;
+  return finalBetSummary;
+}
+
+function cancelPendingBets(reason){
+  let updated = false;
+  const cancelledAt = new Date().toISOString();
+  bets = bets.map((bet)=>{
+    if(bet.status !== "pending") return bet;
+    updated = true;
+    return {
+      ...bet,
+      status: "cancelled",
+      resolvedAt: cancelledAt,
+      note: reason || "已取消",
+      payout: 0
+    };
+  });
+  if(updated) saveBetsToStorage();
+}
+
+function placeBet(){
+  if(spinning){
+    alert("抽籤進行中，請等結果出來再測試下注");
+    return;
+  }
+  if(gameEnded){
+    alert("比賽已結束，請先重置再測試下注");
+    return;
+  }
+  if(matchFinished){
+    alert("比賽已結束，請輸入比分後公布輸贏");
+    return;
+  }
+  const bettorName = String(document.getElementById("betNameInput").value || "").trim() || "匿名";
+  const team = document.getElementById("betTeamSelect").value;
+  const amount = Number(document.getElementById("betAmountInput").value);
+  if(!team || !teamIds().includes(team)){
+    alert("請先選擇測試隊伍");
+    return;
+  }
+  if(!Number.isFinite(amount) || amount <= 0){
+    alert("請輸入有效的測試金額");
+    return;
+  }
+  const odds = betOddsByTeam()[team]?.odds || 1;
+  bets.unshift({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2,8)}`,
+    placedAt: new Date().toISOString(),
+    name: bettorName,
+    team,
+    amount,
+    odds,
+    status: "pending",
+    payout: 0
+  });
+  saveBetsToStorage();
+  refreshBetPanel();
+  document.getElementById("result").innerText = `已測試下注：${bettorName}｜押 ${team}隊 ${amount} 元（${odds.toFixed(2)}x）`;
+}
+
+function resetBets(){
+  const ok = confirm("要清空所有測試紀錄嗎？這只會清掉測試，不會影響分隊。");
+  if(!ok) return;
+  bets = [];
+  saveBetsToStorage();
+  refreshBetPanel();
+  document.getElementById("result").innerText = "測試紀錄已重置";
+}
+
+function exportBetsToExcel(){
+  if(typeof XLSX === "undefined"){
+    alert("Excel 匯出模組尚未載入");
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  const betRows = bets.map((bet, index)=>({
+    編號: index + 1,
+    下注時間: timeStamp(bet.placedAt),
+    測試者: bet.name || "匿名",
+    測試隊伍: `${bet.team}隊`,
+    金額: bet.amount,
+    賠率: Number(bet.odds).toFixed(2),
+    狀態: bet.status === "pending" ? "待公布" : bet.status === "win" ? "中獎" : bet.status === "cancelled" ? "已取消" : "未中",
+    球員: bet.player || "",
+    實際隊伍: bet.resultTeam ? `${bet.resultTeam}隊` : "",
+    派彩: bet.payout || 0,
+    結算時間: bet.resolvedAt ? timeStamp(bet.resolvedAt) : "",
+    備註: bet.note || ""
+  }));
+  const betSheet = XLSX.utils.json_to_sheet(betRows);
+  XLSX.utils.book_append_sheet(wb, betSheet, "測試紀錄");
+
+  if(finalBetSummary?.scores){
+    const scoreRows = teamIds().map((team)=>({
+      隊伍: `${team}隊`,
+      比分: finalBetSummary.scores[team] ?? 0
+    }));
+    const scoreSheet = XLSX.utils.json_to_sheet(scoreRows);
+    XLSX.utils.book_append_sheet(wb, scoreSheet, "比分結果");
+  }
+
+  if(finalBetSummary){
+    const summarySheet = XLSX.utils.json_to_sheet([{
+      勝隊: finalBetSummary.winningTeam || "平手",
+      總池: finalBetSummary.totalPool || 0,
+      實際派彩倍率: finalBetSummary.payoutMultiplier || 0,
+      中獎筆數: finalBetSummary.winCount || 0,
+      未中筆數: finalBetSummary.loseCount || 0,
+      派彩總額: finalBetSummary.payoutTotal || 0
+    }]);
+    XLSX.utils.book_append_sheet(wb, summarySheet, "結算摘要");
+  }
+
+  const teamRows = teamIds().map((t)=>({
+    隊伍: `${t}隊`,
+    總人數: total(t),
+    星級總分: teamStarTotal(t),
+    中鋒: teams[t].C.join("、"),
+    鋒線: teams[t].F.join("、"),
+    後衛: teams[t].G.join("、")
+  }));
+  const teamSheet = XLSX.utils.json_to_sheet(teamRows);
+  XLSX.utils.book_append_sheet(wb, teamSheet, "目前隊伍");
+
+  const fileName = `測試紀錄_${timeStamp().replace(/[: ]/g, "-")}.xlsx`;
+  XLSX.writeFile(wb, fileName);
 }
 
 function playerChipHtml(name){
@@ -378,15 +889,27 @@ function renderTeamLayout(){
     </div>
   `).join("");
   renderPickedRows();
+  renderBetTeamOptions();
 }
 
 function resetGame(){
   playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
   pools = buildPools();
-  teams = Object.fromEntries(teamIds().map((t)=>[t,{C:[],F:[],G:[]}]));
+  teams = Object.fromEntries(teamIds().map((t)=>[t,{C:[],F:[],G:[]}])); 
   angle=0; spinning=false;
+  matchFinished = false;
+  gameEnded = false;
+  finalBetSummary = null;
+  teamIds().forEach((team)=>{
+    const input = document.getElementById(`score_${team}`);
+    if(input) input.value = "";
+  });
+  cancelPendingBets("分隊已重置");
   document.getElementById("result").innerText="";
   updateTeams();
+  updateSettlementVisibility();
+  updateBetControlsState();
+  updateScoreControlsState();
   draw();
 }
 function changeTeamCount(){
@@ -396,7 +919,7 @@ function changeTeamCount(){
 }
 function currentPos(){return document.getElementById("posSelect").value}
 function currentItems(){return pools[currentPos()]}
-function changePosition(){angle=0;draw();}
+function changePosition(){angle=0;draw(); refreshBetPanel();}
 function total(team){return teams[team].C.length+teams[team].F.length+teams[team].G.length}
 function posCount(team,pos){return teams[team][pos].length}
 function allTeamPlayers(team){return [...teams[team].C,...teams[team].F,...teams[team].G]}
@@ -432,7 +955,10 @@ function assign(player,pos){
   if(!team) return false;
   teams[team][pos].push(player);
   pools[pos] = pools[pos].filter(x=>x!==player);
-  document.getElementById("result").innerText = `${player} → ${team}隊`;
+  const gameIsOver = Object.values(pools).every((arr)=>arr.length===0);
+  document.getElementById("result").innerText = gameIsOver
+    ? `${player} → ${team}隊｜分隊完成，請在下面輸入比分後公布輸贏`
+    : `${player} → ${team}隊｜比賽進行中，結果先記錄，賽後公布輸贏`;
   updateTeams();
   draw();
   return true;
@@ -462,6 +988,7 @@ function updateTeams(){
     `提醒：目前名單只保留 06/23（含全程）。`;
   renderRosterGallery();
   renderPickedRows();
+  refreshBetPanel();
 }
 
 function draw(){
