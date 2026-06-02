@@ -36,8 +36,8 @@ h1{font-size:38px;margin:14px 0 6px;text-shadow:0 4px 0 #000,0 0 18px #ffcc00}
   padding:8px 10px;font-weight:700;text-align:center;
   color:#ffdd6c;background:rgba(0,0,0,.45)
 }
-.main{display:flex;flex-wrap:wrap;justify-content:center;gap:26px;margin:18px auto;max-width:1200px}
-.stage{position:relative;width:520px;max-width:94vw}
+.main{display:flex;flex-wrap:wrap;justify-content:center;gap:26px;margin:18px auto;max-width:1680px}
+.stage{position:relative;width:600px;max-width:96vw}
 canvas{
   display:block;
   width:100%;height:auto;border-radius:50%;background:#fff;
@@ -54,7 +54,7 @@ canvas{
   width:90px;height:90px;border-radius:50%;background:#c96b2c;border:4px solid #111;
   display:flex;align-items:center;justify-content:center;font-weight:900;color:#111;
 }
-.panel{width:520px;max-width:94vw;text-align:left}
+.panel{width:760px;max-width:96vw;text-align:left}
 .controls{text-align:center;margin-bottom:12px}
 button{
   padding:12px 20px;font-size:18px;margin:6px;border:0;border-radius:12px;cursor:pointer;font-weight:900;
@@ -68,7 +68,7 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
   display:grid;
   gap:12px;
 }
-.teams{grid-template-columns:repeat(var(--team-columns, 2), minmax(0, 1fr))}
+.teams{grid-template-columns:repeat(var(--team-columns, 2), minmax(220px, 1fr))}
 .team{
   border:3px solid #fff;border-radius:18px;padding:12px;
   background:linear-gradient(145deg,#17408B,#081b45);
@@ -80,9 +80,12 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 .pos{margin:10px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.12)}
 .pos b{color:#ffcc00}
 .player{
-  display:inline-flex;align-items:center;gap:6px;
-  margin:4px;padding:5px 9px;background:rgba(255,255,255,.16);border-radius:999px
+  display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin:4px;padding:5px 9px;background:rgba(255,255,255,.16);border-radius:999px;
+  max-width:100%;
+  white-space:normal;
 }
+.player .stars{flex:0 0 auto}
 .player-avatar{
   width:24px;height:24px;border-radius:50%;object-fit:cover;
   object-position:center 18%;
@@ -98,11 +101,11 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 @media (max-width: 600px){
   .martin-card{width:calc((100% - 10px) / 2);flex-basis:calc((100% - 10px) / 2)}
 }
-.stars{color:#ffd54a;margin-left:4px;letter-spacing:1px}
+.stars{color:#ffd54a;margin-left:4px;letter-spacing:.3px;font-size:.95em}
 .warn{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,204,0,.15);border:1px solid rgba(255,204,0,.7);line-height:1.7}
 .rules{font-size:14px;color:#ddd;line-height:1.7;text-align:center;margin:10px auto 18px;max-width:900px;white-space:pre-line}
 .roster{
-  max-width:1200px;margin:8px auto 18px;padding:0 12px;
+  max-width:1440px;margin:8px auto 18px;padding:0 12px;
   display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px
 }
 .roster-card{
@@ -139,7 +142,7 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
   background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.7) 100%)
 }
 .picked{
-  max-width:1200px;margin:6px auto 24px;padding:0 12px;text-align:left;
+  max-width:1440px;margin:6px auto 24px;padding:0 12px;text-align:left;
   display:flex;
   flex-direction:column;
   flex-wrap:nowrap;
@@ -180,7 +183,7 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 
 <div class="main">
   <div class="stage">
-    <canvas id="wheel" width="520" height="520"></canvas>
+    <canvas id="wheel" width="600" height="600"></canvas>
     <div class="pointer"></div>
     <div class="center">DRAFT</div>
   </div>
@@ -259,7 +262,7 @@ const conflicts = [
 let pools, teams, angle=0, spinning=false;
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
-const cx=260, cy=260, r=222;
+const cx=300, cy=300, r=256;
 const playerPhotoPlaceholder =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -463,7 +466,7 @@ function updateTeams(){
 
 function draw(){
   const items = currentItems();
-  ctx.clearRect(0,0,520,520);
+  ctx.clearRect(0,0,600,600);
   ctx.beginPath();ctx.arc(cx,cy,r+8,0,Math.PI*2);ctx.fillStyle="#111";ctx.fill();
 
   if(items.length===0){
