@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>NBA 風格｜手動分隊</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;
+  font-family:Arial,"Microsoft JhengHei",sans-serif;
+  color:#fff;text-align:center;
+  background:radial-gradient(circle at top,#243b7c 0%,#111832 42%,#05070d 100%);
+}
+.header{padding:24px 10px 8px}
+.logo{
+  display:inline-block;padding:8px 18px;border-radius:999px;
+  background:linear-gradient(90deg,#17408B 0 50%,#C9082A 50%);
+  font-weight:900;letter-spacing:1px;
+}
+h1{font-size:38px;margin:14px 0 6px;text-shadow:0 4px 0 #000,0 0 18px #ffcc00}
+.sub{color:#ddd}
+.main{display:flex;flex-wrap:wrap;justify-content:center;gap:26px;margin:18px auto;max-width:1680px}
+.stage{position:relative;width:420px;max-width:92vw}
+canvas{
+  display:block;width:100%;height:auto;border-radius:50%;background:#fff;
+  border:8px solid #fff;
+  box-shadow:0 0 0 8px #17408B,0 0 0 14px #C9082A,0 22px 60px rgba(0,0,0,.65);
+}
+.pointer{
+  position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+  width:0;height:0;border-top:18px solid transparent;border-bottom:18px solid transparent;border-right:42px solid #ffcc00;
+  filter:drop-shadow(0 0 12px #ffcc00);
+}
+.center{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:76px;height:76px;border-radius:50%;background:#c96b2c;border:4px solid #111;
+  display:flex;align-items:center;justify-content:center;font-weight:900;color:#111;font-size:14px;
+}
+.panel{width:760px;max-width:96vw;text-align:left}
+.controls{text-align:center;margin-bottom:12px}
+button,select{
+  padding:12px 18px;font-size:16px;margin:6px;border:0;border-radius:12px;cursor:pointer;font-weight:900;
+}
+button{background:#eee;box-shadow:0 6px 0 #999}
+#assignBtn{background:linear-gradient(180deg,#ffdf45,#f2a900);box-shadow:0 6px 0 #9a6500}
+#leaderBtn{background:#44d17a;box-shadow:0 6px 0 #13783b}
+#resetBtn{background:#ddd;box-shadow:0 6px 0 #999}
+#backBtn{background:#8ec5ff;box-shadow:0 6px 0 #4d7fb5}
+.result{font-size:26px;color:#ffcc00;text-align:center;min-height:36px;text-shadow:0 0 12px rgba(255,204,0,.6)}
+.teams,.picked{display:grid;gap:12px}
+.teams{grid-template-columns:repeat(2, minmax(220px, 1fr))}
+.team{
+  border:3px solid #fff;border-radius:18px;padding:12px;
+  background:linear-gradient(145deg,#17408B,#081b45);
+  min-height:310px;
+}
+.team.b{background:linear-gradient(145deg,#C9082A,#570711)}
+.team h2{margin:0 0 8px;text-align:center}
+.leaders{
+  margin:8px 0 10px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.1);
+  text-align:left;
+  line-height:1.6;
+}
+.leaders b{color:#ffdd6c}
+.pos{margin:10px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.12)}
+.pos b{color:#ffcc00}
+.player{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin:4px;padding:5px 9px;background:rgba(255,255,255,.16);border-radius:999px;
+  width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+  white-space:normal;overflow-wrap:anywhere;word-break:break-word;
+}
+.player button{
+  padding:3px 8px;margin:0 0 0 auto;border-radius:999px;box-shadow:none;background:#fff;
+  font-size:13px;cursor:pointer
+}
+.player .stars{flex:0 0 auto;white-space:nowrap;margin-left:0}
+.player-avatar{
+  width:24px;height:24px;border-radius:50%;object-fit:cover;
+  object-position:center 18%;
+  border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.18)
+}
+.warn{
+  margin-top:12px;padding:12px;border-radius:12px;
+  background:rgba(255,204,0,.15);border:1px solid rgba(255,204,0,.7);line-height:1.7
+}
+.roster{
+  max-width:1440px;margin:8px auto 18px;padding:0 12px;
+  display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px
+}
+.roster-card{
+  position:relative;
+  background:rgba(255,255,255,.08);
+  border:2px solid rgba(236,201,105,.72);
+  border-radius:14px;padding:0;overflow:hidden;
+  box-shadow:0 10px 20px rgba(0,0,0,.35);
+  text-align:center;
+  cursor:pointer;
+}
+.roster-card.selected{outline:3px solid #ffdd6c}
+.roster-card img{
+  width:100%;height:250px;border-radius:0;object-fit:cover;
+  object-position:center 18%;
+  border:0;background:rgba(255,255,255,.16);display:block
+}
+.roster-name{
+  position:relative;
+  padding:8px 6px;font-size:22px;font-weight:900;letter-spacing:1px;
+  color:#ffdd6c;text-shadow:0 2px 0 #000;
+  background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.7) 100%)
+}
+.picked{
+  max-width:1440px;margin:6px auto 24px;padding:0 12px;text-align:left;
+  display:flex;
+  flex-direction:column;
+  flex-wrap:nowrap;
+  gap:12px;
+  align-items:flex-start;
+}
+.picked > div{width:100%}
+.picked h3{margin:10px 0;color:#ffdd6c}
+.picked-row{
+  display:flex;gap:10px;overflow-x:auto;padding-bottom:4px
+}
+.picked-card{
+  min-width:120px;max-width:120px;
+  border:2px solid rgba(68,209,122,.75);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.08);
+  flex:0 0 auto;
+}
+.picked-card img{width:100%;height:100px;object-fit:cover;object-position:center 18%;display:block}
+.picked-card div{padding:6px;font-size:14px;font-weight:700;text-align:center}
+@media (max-width: 900px){
+  .roster{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width: 600px){
+  .roster{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.stars{color:#ffd54a;margin-left:4px;letter-spacing:.3px;font-size:.95em}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">BASKETBALL MANUAL DRAFT</div>
+  <h1>NBA 風格｜手動分隊</h1>
+  <div class="sub">先點球員，再指定 A 隊或 B 隊；也可以直接在卡片上操作。</div>
+</div>
+
+<div class="main">
+  <div class="stage">
+    <canvas id="wheel" width="420" height="420"></canvas>
+    <div class="pointer"></div>
+    <div class="center">DRAFT</div>
+  </div>
+  <div class="panel">
+    <div class="controls">
+      <select id="playerSelect"></select>
+      <select id="teamSelect">
+        <option value="A">A 隊</option>
+        <option value="B">B 隊</option>
+      </select>
+      <button id="assignBtn" onclick="assignSelectedPlayer()">指定到隊伍</button>
+      <button id="presetBtn" onclick="applyDefaultSplit()">默認分隊</button>
+      <button id="leaderBtn" onclick="drawLeaders()">抽隊長／副隊長</button>
+      <button id="resetBtn" onclick="resetGame()">重置</button>
+      <button id="backBtn" onclick="location.href='index.html'">回到抽籤頁</button>
+    </div>
+    <div id="result" class="result"></div>
+    <div id="teamsContainer" class="teams"></div>
+    <div class="warn" id="note"></div>
+  </div>
+</div>
+
+<div id="rosterPhotos" class="roster"></div>
+<div id="pickedContainer" class="picked"></div>
+
+<script>
+const defaultPlayers = [
+  {name:"小馬", pos:"C", time:"全程", date:"全程", stars:3},
+  {name:"Nash", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"傑瑞", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"大馬", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"小保", pos:"C", time:"18:00-19:00", date:"全程", stars:4},
+  {name:"小伍", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"Kyle", pos:"G", time:"全程", date:"全程", stars:4},
+  {name:"Eric", pos:"G", time:"全程", date:"06/23", stars:5},
+  {name:"Neil", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"Paul(DI)", pos:"C", time:"全程", date:"全程", stars:4},
+  {name:"Glenn", pos:"F", time:"19:00-20:00", date:"全程", stars:3},
+  {name:"Tony", pos:"G", time:"19:00-20:00", date:"全程", stars:5},
+  {name:"Jeff", pos:"C", time:"全程", date:"全程", stars:3},
+  {name:"Darren", pos:"F", time:"全程", date:"06/30", stars:3},
+  {name:"Jason", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"Carmelo", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"Jack", pos:"F", time:"全程", date:"06/23", stars:3}
+];
+
+let players = [...defaultPlayers];
+let playerMap = Object.fromEntries(players.map((p)=>[p.name,p]));
+const activeDate = "06/23";
+let teams = {};
+let leaders = {};
+let selectedPlayer = "";
+let leadersDrawing = false;
+const defaultSplit = {
+  A: ["Paul(DI)","Jeff","大馬","Neil","Glenn","Jason","小伍","Kyle","Eric"],
+  B: ["小馬","小保","Jack","Nash","傑瑞","Tony","Carmelo"]
+};
+
+const playerPhotoPlaceholder =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">' +
+    '<circle cx="40" cy="40" r="39" fill="#0f234f"/>' +
+    '<text x="40" y="55" text-anchor="middle" font-size="56" fill="#ffdd6c" font-family="Arial, sans-serif" font-weight="700">?</text>' +
+    "</svg>"
+  );
+
+function canJoinDate(player){
+  return player.date === "全程" || player.date === activeDate;
+}
+function photoCandidates(name){
+  const raw = String(name || "").trim();
+  const compact = raw.replace(/\s+/g,"");
+  const normalizedParens = raw.replace(/\s*\(\s*/g,"(").replace(/\s*\)\s*/g,")");
+  const baseNames = [...new Set([raw, compact, normalizedParens])];
+  const exts = ["png","jpg","jpeg","webp"];
+  const candidates = [];
+  for(const base of baseNames){
+    for(const ext of exts){
+      candidates.push(`./data/照片/${base}.${ext}`);
+    }
+  }
+  return candidates;
+}
+function playerObjectPosition(name, type="roster"){
+  const custom = {
+    小伍: { roster: "center 2%", chip: "center 4%" },
+    Kyle: { roster: "center 2%", chip: "center 4%" },
+    Jeff: { roster: "center 1%", chip: "center 3%" },
+    Darren: { roster: "center 3%", chip: "center 5%" },
+    Carmelo: { roster: "center 5%", chip: "center 7%" }
+  };
+  return custom[name]?.[type] || "center 18%";
+}
+function starsOf(player){return playerMap[player]?.stars || 3}
+function starText(player){return "★".repeat(starsOf(player))}
+function teamIds(){return ["A","B"]}
+function total(team){return teams[team].C.length + teams[team].F.length + teams[team].G.length}
+function allTeamPlayers(team){return [...teams[team].C,...teams[team].F,...teams[team].G]}
+function availablePlayers(){return players.filter((p)=>canJoinDate(p) && !allTeamPlayers("A").includes(p.name) && !allTeamPlayers("B").includes(p.name))}
+function shuffleArray(values){
+  const array = [...values];
+  for(let index = array.length - 1; index > 0; index--){
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [array[index], array[swapIndex]] = [array[swapIndex], array[index]];
+  }
+  return array;
+}
+
+function resetState(){
+  teams = Object.fromEntries(teamIds().map((t)=>[t,{C:[],F:[],G:[] }]));
+  leaders = Object.fromEntries(teamIds().map((t)=>[t,{captain:"", viceCaptain:""}]));
+  selectedPlayer = "";
+  leadersDrawing = false;
+}
+
+function applyDefaultSplit(){
+  resetState();
+  const byName = Object.fromEntries(players.map((p)=>[p.name,p]));
+  for(const team of teamIds()){
+    for(const playerName of defaultSplit[team] || []){
+      const player = byName[playerName];
+      if(player){
+        teams[team][player.pos].push(playerName);
+      }
+    }
+  }
+  renderPlayerSelect();
+  renderAll();
+  document.getElementById("result").innerText = "已套用默認分隊";
+}
+
+function resetGame(){
+  playerMap = Object.fromEntries(players.map((p)=>[p.name,p]));
+  applyDefaultSplit();
+}
+
+function ensureLeadersState(){
+  for(const team of teamIds()){
+    if(!leaders[team]) leaders[team] = {captain:"", viceCaptain:""};
+  }
+}
+
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const cx = 210, cy = 210, r = 172;
+let wheelAngle = 0;
+let wheelSpinning = false;
+
+function drawWheel(items){
+  ctx.clearRect(0,0,420,420);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
+  ctx.fillStyle = "#111";
+  ctx.fill();
+
+  if(items.length === 0){
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 26px Microsoft JhengHei";
+    ctx.textAlign = "center";
+    ctx.fillText("沒有可抽名單", cx, cy);
+    return;
+  }
+
+  const arc = (Math.PI * 2) / items.length;
+  const colors = ["#17408B","#C9082A","#FDB927","#552583","#007A33","#CE1141","#1D428A","#F58426"];
+  for(let i = 0; i < items.length; i++){
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, wheelAngle + i * arc, wheelAngle + (i + 1) * arc);
+    ctx.closePath();
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(wheelAngle + i * arc + arc / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 16px Microsoft JhengHei";
+    ctx.shadowColor = "#000";
+    ctx.shadowBlur = 5;
+    ctx.fillText(`${items[i]} ${starText(items[i])}`, r - 12, 6);
+    ctx.restore();
+  }
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, 58, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,.85)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function spinWheel(items){
+  return new Promise((resolve)=>{
+    if(items.length === 1){
+      drawWheel(items);
+      setTimeout(()=>resolve(items[0]), 220);
+      return;
+    }
+    wheelSpinning = true;
+    const extra = Math.random() * 720 + 5760;
+    const start = wheelAngle;
+    const end = wheelAngle + (extra * Math.PI / 180);
+    let t = 0;
+    const timer = setInterval(()=>{
+      t += 0.0065;
+      if(t >= 1){
+        clearInterval(timer);
+        wheelAngle = end % (Math.PI * 2);
+        drawWheel(items);
+        const arc = (Math.PI * 2) / items.length;
+        const idx = Math.floor((((Math.PI * 2) - wheelAngle) % (Math.PI * 2)) / arc);
+        wheelSpinning = false;
+        resolve(items[idx]);
+        return;
+      }
+      wheelAngle = start + (end - start) * (1 - Math.pow(1 - t, 4));
+      drawWheel(items);
+    }, 16);
+  });
+}
+
+function renderPlayerSelect(){
+  const select = document.getElementById("playerSelect");
+  const unassigned = availablePlayers();
+  select.innerHTML = unassigned.map((p)=>`<option value="${p.name}">${p.name}｜${p.pos}｜${starText(p.name)}</option>`).join("");
+  if(unassigned.length > 0){
+    selectedPlayer = selectedPlayer && unassigned.some((p)=>p.name === selectedPlayer) ? selectedPlayer : unassigned[0].name;
+    select.value = selectedPlayer;
+  }else{
+    selectedPlayer = "";
+  }
+}
+
+function assignSelectedPlayer(){
+  const select = document.getElementById("playerSelect");
+  const player = select.value;
+  const team = document.getElementById("teamSelect").value;
+  if(!player){
+    alert("目前沒有可分配的球員");
+    return;
+  }
+  assignToTeam(player, team);
+}
+
+function assignToTeam(playerName, team){
+  const player = players.find((p)=>p.name === playerName);
+  if(!player || !canJoinDate(player)) return false;
+  for(const t of teamIds()){
+    for(const pos of ["C","F","G"]){
+      teams[t][pos] = teams[t][pos].filter((name)=>name !== playerName);
+    }
+  }
+  teams[team][player.pos].push(playerName);
+  leaders[team] = leaders[team] || {captain:"", viceCaptain:""};
+  updateAfterChange(`${playerName} → ${team}隊`);
+  return true;
+}
+
+function removeFromTeam(playerName){
+  for(const t of teamIds()){
+    for(const pos of ["C","F","G"]){
+      const before = teams[t][pos].length;
+      teams[t][pos] = teams[t][pos].filter((name)=>name !== playerName);
+      if(teams[t][pos].length !== before){
+        updateAfterChange(`${playerName} 已移除`);
+        return;
+      }
+    }
+  }
+}
+
+function drawLeaders(){
+  if(wheelSpinning || leadersDrawing){
+    return;
+  }
+  leadersDrawing = true;
+  ensureLeadersState();
+  for(const team of teamIds()){
+    const members = allTeamPlayers(team);
+    if(members.length < 2){
+      alert(`${team} 隊至少要有 2 人，才能抽隊長和副隊長`);
+      leadersDrawing = false;
+      return;
+    }
+  }
+  const run = async ()=>{
+    try{
+      for(const team of teamIds()){
+        const captainPool = allTeamPlayers(team);
+        drawWheel(captainPool);
+        const captain = await spinWheel(captainPool);
+        leaders[team].captain = captain || "";
+        updateAfterChange(`${team} 隊隊長：${captain}`);
+
+        const vicePool = allTeamPlayers(team).filter((name)=>name !== captain);
+        drawWheel(vicePool);
+        const viceCaptain = await spinWheel(vicePool);
+        leaders[team].viceCaptain = viceCaptain || "";
+        updateAfterChange(`${team} 隊副隊長：${viceCaptain}`);
+      }
+      updateAfterChange("隊長／副隊長已抽出");
+    }finally{
+      leadersDrawing = false;
+    }
+  };
+  run();
+}
+
+function playerChipHtml(name, team){
+  const safeName = name.replace(/"/g, "&quot;");
+  const src = photoCandidates(name)[0];
+  return `<span class="player" onclick="removeFromTeam('${safeName}')"><img class="player-avatar" style="object-position:${playerObjectPosition(name,'chip')}" src="${src}" alt="${safeName}" data-player="${safeName}" data-photo-index="0">${name}<span class="stars">${starText(name)}</span><button type="button">移除</button></span>`;
+}
+
+function attachPlayerAvatarFallbacks(){
+  document.querySelectorAll(".player-avatar").forEach((img)=>{
+    const player = img.dataset.player || "";
+    const list = photoCandidates(player);
+    const start = Number(img.dataset.photoIndex || "0");
+    img.onerror = () => {
+      const next = Number(img.dataset.photoIndex || `${start}`) + 1;
+      img.dataset.photoIndex = String(next);
+      if(next < list.length){
+        img.src = list[next];
+      }else{
+        img.onerror = null;
+        img.src = playerPhotoPlaceholder;
+      }
+    };
+  });
+}
+
+function renderTeamLayout(){
+  document.getElementById("teamsContainer").innerHTML = teamIds().map((t)=>`
+    <div class="team ${t === "B" ? "b" : ""}">
+      <h2>${t} 隊</h2>
+      <div class="leaders">
+        <div><b>隊長：</b><span id="${t}_captain">尚未抽選</span></div>
+        <div><b>副隊長：</b><span id="${t}_viceCaptain">尚未抽選</span></div>
+      </div>
+      <div class="pos"><b>中鋒：</b><div id="${t}_C"></div></div>
+      <div class="pos"><b>鋒線：</b><div id="${t}_F"></div></div>
+      <div class="pos"><b>後衛：</b><div id="${t}_G"></div></div>
+      <h3 id="${t}_total">總人數：0｜星級總分：0</h3>
+    </div>
+  `).join("");
+  renderPickedRows();
+}
+
+function renderRosterGallery(){
+  const assigned = new Set(teamIds().reduce((all, team)=>all.concat(allTeamPlayers(team)), []));
+  const available = players.filter((p)=>canJoinDate(p) && !assigned.has(p.name));
+  const box = document.getElementById("rosterPhotos");
+  box.innerHTML = available.map((p)=>{
+    const safeName = p.name.replace(/"/g, "&quot;");
+    const src = photoCandidates(p.name)[0];
+    return `<div class="roster-card ${selectedPlayer===p.name ? "selected" : ""}" onclick="selectPlayer('${safeName}')"><img class="player-avatar" style="object-position:${playerObjectPosition(p.name,"roster")}" src="${src}" alt="${safeName}" data-player="${safeName}" data-photo-index="0"><div class="roster-name">${p.name}<div style="font-size:12px;font-weight:700;color:#fff;margin-top:2px">${p.pos}｜${starText(p.name)}</div></div></div>`;
+  }).join("");
+  attachPlayerAvatarFallbacks();
+}
+
+function renderPickedRows(){
+  const box = document.getElementById("pickedContainer");
+  box.innerHTML = teamIds().map((t)=>`<div><h3>${t} 隊照片橫排</h3><div id="picked${t}" class="picked-row"></div></div>`).join("");
+  for(const t of teamIds()){
+    const row = document.getElementById(`picked${t}`);
+    const names = allTeamPlayers(t);
+    row.innerHTML = names.map((name)=>{
+      const safeName = name.replace(/"/g, "&quot;");
+      const src = photoCandidates(name)[0];
+      return `<div class="picked-card"><img class="player-avatar" style="object-position:${playerObjectPosition(name,"roster")}" src="${src}" alt="${safeName}" data-player="${safeName}" data-photo-index="0"><div>${name}</div></div>`;
+    }).join("");
+  }
+  attachPlayerAvatarFallbacks();
+}
+
+function selectPlayer(name){
+  selectedPlayer = name;
+  const select = document.getElementById("playerSelect");
+  if(select) select.value = name;
+  renderRosterGallery();
+}
+
+function updateTeams(){
+  ensureLeadersState();
+  for(const t of teamIds()){
+    const captainEl = document.getElementById(`${t}_captain`);
+    const viceCaptainEl = document.getElementById(`${t}_viceCaptain`);
+    if(captainEl) captainEl.textContent = leaders[t]?.captain ? `${leaders[t].captain}（${starText(leaders[t].captain)}）` : "尚未抽選";
+    if(viceCaptainEl) viceCaptainEl.textContent = leaders[t]?.viceCaptain ? `${leaders[t].viceCaptain}（${starText(leaders[t].viceCaptain)}）` : "尚未抽選";
+    for(const p of ["C","F","G"]){
+      const area = document.getElementById(`${t}_${p}`);
+      if(area) area.innerHTML = teams[t][p].map((name)=>playerChipHtml(name, t)).join("");
+    }
+    const totalEl = document.getElementById(`${t}_total`);
+    if(totalEl) totalEl.innerText = `總人數：${total(t)}｜星級總分：${allTeamPlayers(t).reduce((sum,p)=>sum+starsOf(p),0)}`;
+  }
+
+  const assigned = new Set(teamIds().reduce((all, team)=>all.concat(allTeamPlayers(team)), []));
+  const unassigned = players.filter((p)=>canJoinDate(p) && !assigned.has(p.name));
+  const totals = teamIds().map((t)=>total(t));
+  const stars = teamIds().map((t)=>allTeamPlayers(t).reduce((sum,p)=>sum+starsOf(p),0));
+  const diff = Math.max(...totals) - Math.min(...totals);
+  const starDiff = Math.max(...stars) - Math.min(...stars);
+  document.getElementById("note").innerHTML = `目前：A 隊 ${total("A")} 人（${stars[0]}★），B 隊 ${total("B")} 人（${stars[1]}★）｜人數差距 ${diff}，星級差距 ${starDiff}<br>未分配：${unassigned.length} 人。<br>提醒：直接點球員卡片也可以快速選取。`;
+
+  renderPlayerSelect();
+  renderRosterGallery();
+  renderPickedRows();
+}
+
+function updateAfterChange(message){
+  updateTeams();
+  document.getElementById("result").innerText = message;
+}
+
+function renderAll(){
+  renderTeamLayout();
+  updateTeams();
+  drawWheel(allTeamPlayers("A").length ? allTeamPlayers("A") : allTeamPlayers("B"));
+}
+
+applyDefaultSplit();
+</script>
+</body>
+</html>

@@ -77,6 +77,15 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 .team.b{background:linear-gradient(145deg,#C9082A,#570711)}
 .team.c{background:linear-gradient(145deg,#0f7a3c,#0a3a1d)}
 .team h2{margin:0 0 8px;text-align:center}
+.leaders{
+  margin:8px 0 10px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.1);
+  text-align:left;
+  line-height:1.6;
+}
+.leaders b{color:#ffdd6c}
 .pos{margin:10px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.12)}
 .pos b{color:#ffcc00}
 .player{
@@ -270,6 +279,10 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
       </select><br>
       <button id="drawBtn" onclick="spin()">抽這個位置</button>
       <button id="autoBtn" onclick="autoDraft()">一鍵自動分隊</button>
+      <button id="leaderBtn" onclick="drawLeaders()">抽隊長／副隊長</button>
+      <button id="leaderResetBtn" onclick="resetLeaders()">清除隊長</button>
+      <button id="manualBtn" onclick="location.href='manual.html'">手動分隊頁</button>
+      <button id="tradePageBtn" onclick="location.href='trade.html'">隊長交易頁</button>
       <button id="resetBtn" onclick="resetGame()">重置</button>
     </div>
     <div id="result" class="result"></div>
@@ -358,6 +371,7 @@ const conflicts = [
 ];
 
 let pools, teams, angle=0, spinning=false;
+let leaders = {};
 const betStorageKey = "nba_draft_bets_v1";
 let bets = loadBetsFromStorage();
 let matchFinished = false;
@@ -882,6 +896,10 @@ function renderTeamLayout(){
   document.getElementById("teamsContainer").innerHTML = ids.map((t)=>`
     <div class="team ${teamClass(t)}">
       <h2>${t} 隊</h2>
+      <div class="leaders" id="${t}_leaders">
+        <div><b>隊長：</b><span id="${t}_captain">尚未抽選</span></div>
+        <div><b>副隊長：</b><span id="${t}_viceCaptain">尚未抽選</span></div>
+      </div>
       <div class="pos"><b>中鋒：</b><div id="${t}_C"></div></div>
       <div class="pos"><b>鋒線：</b><div id="${t}_F"></div></div>
       <div class="pos"><b>後衛：</b><div id="${t}_G"></div></div>
@@ -896,6 +914,7 @@ function resetGame(){
   playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
   pools = buildPools();
   teams = Object.fromEntries(teamIds().map((t)=>[t,{C:[],F:[],G:[]}])); 
+  leaders = Object.fromEntries(teamIds().map((t)=>[t,{captain:"", viceCaptain:""}]));
   angle=0; spinning=false;
   matchFinished = false;
   gameEnded = false;
@@ -926,6 +945,55 @@ function allTeamPlayers(team){return [...teams[team].C,...teams[team].F,...teams
 function starsOf(player){return playerMap[player]?.stars || 3}
 function teamStarTotal(team){return allTeamPlayers(team).reduce((sum,p)=>sum+starsOf(p),0)}
 function starText(player){return "★".repeat(starsOf(player))}
+
+function ensureLeadersState(){
+  for(const team of teamIds()){
+    if(!leaders[team]) leaders[team] = {captain:"", viceCaptain:""};
+  }
+}
+
+function shuffleArray(values){
+  const array = [...values];
+  for(let index = array.length - 1; index > 0; index--){
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [array[index], array[swapIndex]] = [array[swapIndex], array[index]];
+  }
+  return array;
+}
+
+function drawLeaders(){
+  if(spinning){
+    alert("抽籤進行中，請先等分隊完成");
+    return;
+  }
+  ensureLeadersState();
+  for(const team of teamIds()){
+    const members = allTeamPlayers(team);
+    if(members.length < 2){
+      alert(`${team} 隊的人數至少要 2 人，才能抽隊長和副隊長`);
+      return;
+    }
+  }
+  for(const team of teamIds()){
+    const members = allTeamPlayers(team);
+    const shuffled = shuffleArray(members);
+    leaders[team] = {
+      captain: shuffled[0] || "",
+      viceCaptain: shuffled[1] || ""
+    };
+  }
+  updateTeams();
+  document.getElementById("result").innerText = "隊長／副隊長已抽出";
+}
+
+function resetLeaders(){
+  ensureLeadersState();
+  for(const team of teamIds()){
+    leaders[team] = {captain:"", viceCaptain:""};
+  }
+  updateTeams();
+  document.getElementById("result").innerText = "隊長／副隊長已清除";
+}
 
 function hasConflict(player, team){
   const members = allTeamPlayers(team);
@@ -966,6 +1034,16 @@ function assign(player,pos){
 
 function updateTeams(){
   for(const t of teamIds()){
+    const captain = leaders[t]?.captain || "";
+    const viceCaptain = leaders[t]?.viceCaptain || "";
+    const captainText = captain || "尚未抽選";
+    const viceCaptainText = viceCaptain || "尚未抽選";
+    const captainStars = captain ? `（${starText(captain)}）` : "";
+    const viceCaptainStars = viceCaptain ? `（${starText(viceCaptain)}）` : "";
+    const captainEl = document.getElementById(`${t}_captain`);
+    const viceCaptainEl = document.getElementById(`${t}_viceCaptain`);
+    if(captainEl) captainEl.textContent = `${captainText}${captainStars}`;
+    if(viceCaptainEl) viceCaptainEl.textContent = `${viceCaptainText}${viceCaptainStars}`;
     for(const p of ["C","F","G"]){
       document.getElementById(`${t}_${p}`).innerHTML =
         teams[t][p].map(playerChipHtml).join("");
@@ -985,7 +1063,7 @@ function updateTeams(){
   document.getElementById("note").innerHTML =
     `目前：${teamIds().map((t)=>`${t}隊 ${total(t)} 人（${teamStarTotal(t)}★）`).join("，")}` +
     `，人數差距 ${diff}，星級差距 ${starDiff}<br>${left}<br>` +
-    `提醒：目前名單只保留 06/23（含全程）。`;
+    `提醒：目前名單只保留 06/23（含全程）。<br>隊長／副隊長可在分隊完成後直接抽選。`;
   renderRosterGallery();
   renderPickedRows();
   refreshBetPanel();
