@@ -112,6 +112,19 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 }
 .stars{color:#ffd54a;margin-left:4px;letter-spacing:.3px;font-size:.95em}
 .warn{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,204,0,.15);border:1px solid rgba(255,204,0,.7);line-height:1.7}
+.log-panel{
+  margin-top:14px;padding:12px;border-radius:12px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)
+}
+.log-panel h3{margin:0 0 10px;color:#ffdd6c;text-align:center}
+.log-list{
+  max-height:220px;overflow:auto;text-align:left;
+  border-top:1px solid rgba(255,255,255,.16);padding-top:10px
+}
+.log-item{
+  margin:6px 0;padding:8px 10px;border-radius:10px;
+  background:rgba(0,0,0,.22);line-height:1.45
+}
 .betting{
   margin:12px 0 14px;
   padding:12px;
@@ -290,6 +303,11 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
     <div id="teamsContainer" class="teams"></div>
 
     <div class="warn" id="note"></div>
+    <div class="log-panel">
+      <h3>共同操作紀錄</h3>
+      <div id="syncStatus" style="text-align:center;color:#ddd;margin-bottom:8px">GitHub 同步：尚未開始</div>
+      <div id="opLogList" class="log-list"></div>
+    </div>
   </div>
 </div>
 <div id="pickedContainer" class="picked"></div>
@@ -371,6 +389,11 @@ const conflicts = [
 ];
 
 let pools, teams, angle=0, spinning=false;
+const opLogKey = "nba_shared_ops_v1";
+let opLogs = loadOpLogs();
+const syncEndpoint = "http://127.0.0.1:8787/sync";
+const pageName = "index";
+let syncStatusText = "尚未開始";
 let leaders = {};
 const betStorageKey = "nba_draft_bets_v1";
 let bets = loadBetsFromStorage();
@@ -930,6 +953,7 @@ function resetGame(){
   updateBetControlsState();
   updateScoreControlsState();
   draw();
+  logOperation("重置", "已重置並重新分隊");
 }
 function changeTeamCount(){
   teamCount = Number(document.getElementById("teamCountSelect").value || "2");
@@ -945,6 +969,96 @@ function allTeamPlayers(team){return [...teams[team].C,...teams[team].F,...teams
 function starsOf(player){return playerMap[player]?.stars || 3}
 function teamStarTotal(team){return allTeamPlayers(team).reduce((sum,p)=>sum+starsOf(p),0)}
 function starText(player){return "★".repeat(starsOf(player))}
+
+function loadOpLogs(){
+  try{
+    const raw = localStorage.getItem(opLogKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function saveOpLogs(){
+  try{
+    localStorage.setItem(opLogKey, JSON.stringify(opLogs));
+  }catch(e){}
+}
+
+function logOperation(type, detail){
+  opLogs.unshift({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2,8)}`,
+    time: new Date().toISOString(),
+    page: "index",
+    type,
+    detail
+  });
+  saveOpLogs();
+  renderOpLog();
+  void syncOpLogsToGitHub();
+}
+
+function renderOpLog(){
+  const box = document.getElementById("opLogList");
+  if(!box) return;
+  const rows = opLogs.slice(0, 30);
+  if(rows.length === 0){
+    box.innerHTML = `<div class="log-item">尚無操作紀錄</div>`;
+    return;
+  }
+  box.innerHTML = rows.map((item)=>`
+    <div class="log-item">
+      <div><b>${item.type}</b>｜${timeStamp(item.time)}</div>
+      <div>${item.detail}</div>
+    </div>
+  `).join("");
+}
+
+function renderSyncStatus(){
+  const box = document.getElementById("syncStatus");
+  if(!box) return;
+  box.textContent = `GitHub 同步：${syncStatusText}`;
+}
+
+function buildOpsWorkbook(){
+  const wb = XLSX.utils.book_new();
+  const rows = opLogs.map((item, index)=>({
+    編號: index + 1,
+    時間: timeStamp(item.time),
+    頁面: item.page,
+    類型: item.type,
+    內容: item.detail
+  }));
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, sheet, "操作紀錄");
+  return wb;
+}
+
+async function syncOpLogsToGitHub(){
+  if(typeof XLSX === "undefined"){
+    syncStatusText = "同步失敗（Excel 模組未載入）";
+    renderSyncStatus();
+    return;
+  }
+  try{
+    const wb = buildOpsWorkbook();
+    const buffer = XLSX.write(wb, {bookType:"xlsx", type:"array"});
+    const response = await fetch(syncEndpoint, {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/octet-stream",
+        "X-Page": pageName
+      },
+      body: buffer
+    });
+    const data = await response.json();
+    syncStatusText = data.ok ? `已同步 ${data.fileName || "操作紀錄.xlsx"}` : `同步失敗${data.error ? `：${data.error}` : ""}`;
+  }catch(error){
+    syncStatusText = "同步失敗（本機同步服務未啟動）";
+  }
+  renderSyncStatus();
+}
 
 function ensureLeadersState(){
   for(const team of teamIds()){
@@ -984,6 +1098,7 @@ function drawLeaders(){
   }
   updateTeams();
   document.getElementById("result").innerText = "隊長／副隊長已抽出";
+  logOperation("抽隊長", "已為各隊抽出隊長／副隊長");
 }
 
 function resetLeaders(){
@@ -993,6 +1108,7 @@ function resetLeaders(){
   }
   updateTeams();
   document.getElementById("result").innerText = "隊長／副隊長已清除";
+  logOperation("清除", "已清除隊長／副隊長");
 }
 
 function hasConflict(player, team){
@@ -1029,6 +1145,7 @@ function assign(player,pos){
     : `${player} → ${team}隊｜比賽進行中，結果先記錄，賽後公布輸贏`;
   updateTeams();
   draw();
+  logOperation("抽籤", `${player} → ${team}隊（${positionLabel(pos)}）`);
   return true;
 }
 
@@ -1067,6 +1184,8 @@ function updateTeams(){
   renderRosterGallery();
   renderPickedRows();
   refreshBetPanel();
+  renderOpLog();
+  renderSyncStatus();
 }
 
 function draw(){
@@ -1159,6 +1278,7 @@ function autoDraft(){
     }
   }
   document.getElementById("result").innerText="一鍵分隊完成";
+  logOperation("完成", "一鍵自動分隊完成");
 }
 
 function normalizePos(v){
@@ -1304,6 +1424,13 @@ if(xlsxInput){
     loadPlayersFromSheet(file);
   });
 }
+
+window.addEventListener("storage", (event)=>{
+  if(event.key === opLogKey){
+    opLogs = loadOpLogs();
+    renderOpLog();
+  }
+});
 
 renderTeamLayout();
 resetGame();
