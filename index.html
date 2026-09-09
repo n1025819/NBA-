@@ -62,6 +62,7 @@ button{
 #drawBtn{background:linear-gradient(180deg,#ffdf45,#f2a900);box-shadow:0 6px 0 #9a6500}
 #autoBtn{background:#44d17a;box-shadow:0 6px 0 #13783b}
 #resetBtn{background:#eee;box-shadow:0 6px 0 #999}
+#swapPlayersBtn{background:#8ec5ff;box-shadow:0 6px 0 #4d7fb5}
 select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 .result{font-size:26px;color:#ffcc00;text-align:center;min-height:36px;text-shadow:0 0 12px rgba(255,204,0,.6)}
 .teams,.picked{
@@ -77,15 +78,6 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 .team.b{background:linear-gradient(145deg,#C9082A,#570711)}
 .team.c{background:linear-gradient(145deg,#0f7a3c,#0a3a1d)}
 .team h2{margin:0 0 8px;text-align:center}
-.leaders{
-  margin:8px 0 10px;
-  padding:8px 10px;
-  border-radius:12px;
-  background:rgba(255,255,255,.1);
-  text-align:left;
-  line-height:1.6;
-}
-.leaders b{color:#ffdd6c}
 .pos{margin:10px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.12)}
 .pos b{color:#ffcc00}
 .player{
@@ -112,6 +104,15 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 }
 .stars{color:#ffd54a;margin-left:4px;letter-spacing:.3px;font-size:.95em}
 .warn{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,204,0,.15);border:1px solid rgba(255,204,0,.7);line-height:1.7}
+.trade-panel{
+  margin-top:14px;padding:14px;border-radius:14px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);text-align:center
+}
+.trade-panel h2{margin:0 0 8px;color:#ffdd6c}
+.trade-row{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px}
+.trade-side{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:center}
+.trade-arrow{font-size:28px;font-weight:900;color:#ffdd6c;margin:0 4px}
+.trade-status{min-height:22px;margin-top:8px;color:#ddd;font-weight:700}
 .log-panel{
   margin-top:14px;padding:12px;border-radius:12px;
   background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)
@@ -195,6 +196,27 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 .bet-item.lose{border-left:4px solid #ff6b6b}
 .bet-item.pending{border-left:4px solid #ffcc00}
 .rules{font-size:14px;color:#ddd;line-height:1.7;text-align:center;margin:10px auto 18px;max-width:900px;white-space:pre-line}
+.participant-filter{
+  max-width:1440px;margin:8px auto 16px;padding:14px 16px;
+  border:1px solid rgba(255,255,255,.25);border-radius:16px;
+  background:rgba(255,255,255,.08);text-align:left
+}
+.participant-filter-head{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px
+}
+.participant-filter h2{margin:0;color:#ffdd6c;font-size:22px}
+.participant-filter-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.participant-filter-actions button{padding:8px 14px;margin:0;font-size:14px}
+.participant-count{color:#ddd;font-weight:700}
+.participant-options{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin-top:12px
+}
+.participant-option{
+  display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:10px;
+  background:rgba(0,0,0,.22);cursor:pointer;font-weight:700;user-select:none
+}
+.participant-option:has(input:checked){background:rgba(68,209,122,.2);outline:1px solid rgba(68,209,122,.65)}
+.participant-option input{width:18px;height:18px;margin:0;accent-color:#44d17a;cursor:pointer}
 .roster{
   max-width:1440px;margin:8px auto 18px;padding:0 12px;
   display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px
@@ -270,6 +292,18 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
   分隊邏輯：每個位置輪流抽，系統會同時平衡人數與星級總分，遇到限制會改放其他隊。
   目前名單只保留 06/23（含全程）。
 </div>
+<section class="participant-filter" aria-labelledby="participantFilterTitle">
+  <div class="participant-filter-head">
+    <h2 id="participantFilterTitle">本場出場名單</h2>
+    <div class="participant-filter-actions">
+      <span id="participantCount" class="participant-count"></span>
+      <button type="button" onclick="setAllParticipants(true)">全選</button>
+      <button type="button" onclick="setAllParticipants(false)">清空</button>
+    </div>
+  </div>
+  <div class="sub" style="margin-top:6px">只有勾選的人會出現在照片名單、輪盤與自動分隊中。</div>
+  <div id="participantOptions" class="participant-options"></div>
+</section>
 <div id="rosterPhotos" class="roster"></div>
 
 <div class="main">
@@ -292,18 +326,31 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
       </select><br>
       <button id="drawBtn" onclick="spin()">抽這個位置</button>
       <button id="autoBtn" onclick="autoDraft()">一鍵自動分隊</button>
-      <button id="leaderBtn" onclick="drawLeaders()">抽隊長／副隊長</button>
-      <button id="leaderResetBtn" onclick="resetLeaders()">清除隊長</button>
-      <button id="manualBtn" onclick="location.href='manual.html'">手動分隊頁</button>
-      <button id="tradePageBtn" onclick="location.href='trade.html'">隊長交易頁</button>
       <button id="resetBtn" onclick="resetGame()">重置</button>
     </div>
     <div id="result" class="result"></div>
 
     <div id="teamsContainer" class="teams"></div>
 
-    <div class="warn" id="note"></div>
-    <div class="log-panel">
+    <section class="trade-panel" aria-labelledby="tradeTitle">
+      <h2 id="tradeTitle">球員交換</h2>
+      <div class="trade-row">
+        <div class="trade-side">
+          <select id="tradeTeam1" aria-label="第一支隊伍" onchange="refreshTradePlayerOptions()"></select>
+          <select id="tradePlayer1" aria-label="第一位球員"></select>
+        </div>
+        <span class="trade-arrow" aria-hidden="true">↔</span>
+        <div class="trade-side">
+          <select id="tradeTeam2" aria-label="第二支隊伍" onchange="refreshTradePlayerOptions()"></select>
+          <select id="tradePlayer2" aria-label="第二位球員"></select>
+        </div>
+        <button id="swapPlayersBtn" type="button" onclick="swapSelectedPlayers()">交換球員</button>
+      </div>
+      <div id="tradeStatus" class="trade-status">分隊後即可選擇兩位球員交換</div>
+    </section>
+
+    <div class="warn" id="note" hidden></div>
+    <div class="log-panel" hidden>
       <h3>共同操作紀錄</h3>
       <div id="syncStatus" style="text-align:center;color:#ddd;margin-bottom:8px">GitHub 同步：尚未開始</div>
       <div id="opLogList" class="log-list"></div>
@@ -312,7 +359,7 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 </div>
 <div id="pickedContainer" class="picked"></div>
 
-<div class="panel" style="max-width:1440px;margin:0 auto 24px;padding:0 12px;">
+<div class="panel" hidden style="max-width:1440px;margin:0 auto 24px;padding:0 12px;">
   <div class="betting">
     <button id="bettingToggleBtn" class="betting-header" onclick="toggleBettingArea()">測試區 ▼</button>
     <div id="bettingBody" class="betting-body collapsed">
@@ -345,27 +392,28 @@ select{padding:10px;border-radius:10px;font-size:16px;margin:6px}
 <script>
 const defaultPlayers = [
   {name:"小馬", pos:"C", time:"全程", date:"全程", stars:3},
-  {name:"Nash", pos:"F", time:"全程", date:"全程", stars:3},
   {name:"傑瑞", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"Nash", pos:"F", time:"全程", date:"全程", stars:3},
   {name:"大馬", pos:"F", time:"全程", date:"全程", stars:3},
-  {name:"小保", pos:"C", time:"18:00-19:00", date:"全程", stars:4},
-  {name:"小伍", pos:"G", time:"全程", date:"全程", stars:3},
-  {name:"Kyle", pos:"G", time:"全程", date:"全程", stars:4},
-  {name:"Eric", pos:"G", time:"全程", date:"06/23", stars:5},
+  {name:"大保", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"小伍哥", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"GT", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"達倫哥", pos:"F", time:"全程", date:"全程", stars:3},
   {name:"Neil", pos:"F", time:"全程", date:"全程", stars:3},
-  {name:"Paul(DI)", pos:"C", time:"全程", date:"全程", stars:4},
-  {name:"Glenn", pos:"F", time:"19:00-20:00", date:"全程", stars:3},
-  {name:"Tony", pos:"G", time:"19:00-20:00", date:"全程", stars:5},
   {name:"Jeff", pos:"C", time:"全程", date:"全程", stars:3},
-  {name:"Darren", pos:"F", time:"全程", date:"06/30", stars:3},
-  {name:"Jason", pos:"F", time:"全程", date:"全程", stars:3},
-  {name:"Carmelo", pos:"G", time:"全程", date:"全程", stars:3},
-  {name:"Jack", pos:"F", time:"全程", date:"06/23", stars:3}
+  {name:"Eric", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"傑森", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"Louis", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"Tim", pos:"C", time:"全程", date:"全程", stars:3},
+  {name:"Glenn", pos:"F", time:"19:00-20:00", date:"全程", stars:3},
+  {name:"小保", pos:"C", time:"全程", date:"全程", stars:3}
 ];
 
 let players = [...defaultPlayers];
 let playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
 const activeDate = "06/23";
+const participantStorageKey = "nba_draft_excluded_players_v2";
+let excludedPlayerNames = loadExcludedPlayerNames();
 let teamCount = 2;
 function canJoinDate(player){
   return player.date === "全程" || player.date === activeDate;
@@ -373,10 +421,26 @@ function canJoinDate(player){
 function canJoinSlot(player, slot){
   return player.time==="全程" || player.time===slot;
 }
+function loadExcludedPlayerNames(){
+  try{
+    const parsed = JSON.parse(localStorage.getItem(participantStorageKey) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  }catch(e){
+    return new Set();
+  }
+}
+function saveExcludedPlayerNames(){
+  try{
+    localStorage.setItem(participantStorageKey, JSON.stringify([...excludedPlayerNames]));
+  }catch(e){}
+}
+function canAppear(player){
+  return canJoinDate(player) && !excludedPlayerNames.has(player.name);
+}
 function buildPools(){
   const base = { C: [], F: [], G: [] };
   for(const p of players){
-    if(!canJoinDate(p)) continue;
+    if(!canAppear(p)) continue;
     base[p.pos].push(p.name);
   }
   return base;
@@ -384,7 +448,7 @@ function buildPools(){
 
 const conflicts = [
   ["小馬","大馬"],
-  ["Paul(DI)","小保"],
+  ["大保","小保"],
   ["Glenn","Nash"]
 ];
 
@@ -394,7 +458,6 @@ let opLogs = loadOpLogs();
 const syncEndpoint = "http://127.0.0.1:8787/sync";
 const pageName = "index";
 let syncStatusText = "尚未開始";
-let leaders = {};
 const betStorageKey = "nba_draft_bets_v1";
 let bets = loadBetsFromStorage();
 let matchFinished = false;
@@ -418,7 +481,13 @@ function photoCandidates(name){
   const normalizedParens = raw
     .replace(/\s*\(\s*/g, "(")
     .replace(/\s*\)\s*/g, ")");
-  const baseNames = [...new Set([raw, compact, normalizedParens])];
+  const photoAliases = {
+    大保: "Paul(DI)",
+    小伍哥: "小伍",
+    達倫哥: "Darren",
+    傑森: "Jason"
+  };
+  const baseNames = [...new Set([raw, compact, normalizedParens, photoAliases[raw]].filter(Boolean))];
   const exts = ["png","jpg","jpeg","webp"];
   const candidates = [];
   for(const base of baseNames){
@@ -872,9 +941,68 @@ function attachPlayerAvatarFallbacks(){
   });
 }
 
+function renderParticipantSelector(){
+  const box = document.getElementById("participantOptions");
+  const countBox = document.getElementById("participantCount");
+  if(!box || !countBox) return;
+
+  const eligiblePlayers = players.filter(canJoinDate);
+  box.replaceChildren();
+  for(const player of eligiblePlayers){
+    const label = document.createElement("label");
+    label.className = "participant-option";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !excludedPlayerNames.has(player.name);
+    checkbox.setAttribute("aria-label", `${player.name}可出場`);
+    checkbox.addEventListener("change", ()=>{
+      setPlayerParticipation(player.name, checkbox.checked);
+    });
+
+    const name = document.createElement("span");
+    name.textContent = `${player.name}｜${player.pos}`;
+    label.append(checkbox, name);
+    box.appendChild(label);
+  }
+
+  const selectedCount = eligiblePlayers.filter((p)=>!excludedPlayerNames.has(p.name)).length;
+  countBox.textContent = `已選 ${selectedCount} / ${eligiblePlayers.length} 人`;
+}
+
+function setPlayerParticipation(playerName, enabled){
+  if(spinning){
+    alert("抽籤進行中，請等輪盤停止後再調整名單");
+    renderParticipantSelector();
+    return;
+  }
+  if(enabled) excludedPlayerNames.delete(playerName);
+  else excludedPlayerNames.add(playerName);
+  saveExcludedPlayerNames();
+  resetGame(false);
+  document.getElementById("result").innerText = `${playerName}已${enabled ? "加入" : "移出"}本場名單`;
+  logOperation("出場名單", `${playerName}：${enabled ? "可出場" : "不出場"}`);
+}
+
+function setAllParticipants(enabled){
+  if(spinning){
+    alert("抽籤進行中，請等輪盤停止後再調整名單");
+    return;
+  }
+  const eligiblePlayers = players.filter(canJoinDate);
+  for(const player of eligiblePlayers){
+    if(enabled) excludedPlayerNames.delete(player.name);
+    else excludedPlayerNames.add(player.name);
+  }
+  saveExcludedPlayerNames();
+  resetGame(false);
+  document.getElementById("result").innerText = enabled ? "已全選本場名單" : "已清空本場名單";
+  logOperation("出場名單", enabled ? "已全選" : "已清空");
+}
+
 function renderRosterGallery(){
   const assigned = new Set(teamIds().reduce((list, team)=>list.concat(allTeamPlayers(team)), []));
-  const available = players.filter((p)=>canJoinDate(p) && !assigned.has(p.name));
+  const available = players.filter((p)=>canAppear(p) && !assigned.has(p.name));
   const box = document.getElementById("rosterPhotos");
   box.innerHTML = available.map((p)=>{
     const safeName = p.name.replace(/"/g, "&quot;");
@@ -909,6 +1037,86 @@ function teamClass(team){
   return "";
 }
 
+function renderTradeTeamOptions(){
+  const firstTeamSelect = document.getElementById("tradeTeam1");
+  const secondTeamSelect = document.getElementById("tradeTeam2");
+  if(!firstTeamSelect || !secondTeamSelect) return;
+
+  const ids = teamIds();
+  const firstPrevious = firstTeamSelect.value;
+  const secondPrevious = secondTeamSelect.value;
+  const options = ids.map((team)=>`<option value="${team}">${team} 隊</option>`).join("");
+  firstTeamSelect.innerHTML = options;
+  secondTeamSelect.innerHTML = options;
+  firstTeamSelect.value = ids.includes(firstPrevious) ? firstPrevious : ids[0];
+  secondTeamSelect.value = ids.includes(secondPrevious) ? secondPrevious : (ids[1] || ids[0]);
+  if(firstTeamSelect.value === secondTeamSelect.value && ids.length > 1){
+    secondTeamSelect.value = ids.find((team)=>team !== firstTeamSelect.value) || ids[0];
+  }
+  refreshTradePlayerOptions();
+}
+
+function fillTradePlayerSelect(selectId, team){
+  const select = document.getElementById(selectId);
+  if(!select) return;
+  const previous = select.value;
+  const members = teams?.[team] ? allTeamPlayers(team) : [];
+  select.replaceChildren();
+  if(members.length === 0){
+    select.add(new Option("尚無球員", ""));
+    return;
+  }
+  for(const name of members){
+    const pos = playerMap[name]?.pos || "G";
+    select.add(new Option(`${name}｜${positionLabel(pos)}`, name));
+  }
+  if(members.includes(previous)) select.value = previous;
+}
+
+function refreshTradePlayerOptions(){
+  const firstTeam = document.getElementById("tradeTeam1")?.value || "";
+  const secondTeam = document.getElementById("tradeTeam2")?.value || "";
+  fillTradePlayerSelect("tradePlayer1", firstTeam);
+  fillTradePlayerSelect("tradePlayer2", secondTeam);
+}
+
+function swapSelectedPlayers(){
+  if(spinning){
+    alert("抽籤進行中，請等輪盤停止後再交換球員");
+    return;
+  }
+  const firstTeam = document.getElementById("tradeTeam1")?.value || "";
+  const secondTeam = document.getElementById("tradeTeam2")?.value || "";
+  const firstPlayer = document.getElementById("tradePlayer1")?.value || "";
+  const secondPlayer = document.getElementById("tradePlayer2")?.value || "";
+  const status = document.getElementById("tradeStatus");
+
+  if(!firstTeam || !secondTeam || firstTeam === secondTeam){
+    alert("請選擇兩支不同的隊伍");
+    return;
+  }
+  if(!firstPlayer || !secondPlayer){
+    alert("兩隊都需要選擇一位球員");
+    return;
+  }
+  if(!allTeamPlayers(firstTeam).includes(firstPlayer) || !allTeamPlayers(secondTeam).includes(secondPlayer)){
+    refreshTradePlayerOptions();
+    alert("球員名單已變更，請重新選擇");
+    return;
+  }
+  for(const pos of ["C","F","G"]){
+    teams[firstTeam][pos] = teams[firstTeam][pos].filter((name)=>name !== firstPlayer);
+    teams[secondTeam][pos] = teams[secondTeam][pos].filter((name)=>name !== secondPlayer);
+  }
+  teams[firstTeam][playerMap[secondPlayer].pos].push(secondPlayer);
+  teams[secondTeam][playerMap[firstPlayer].pos].push(firstPlayer);
+  const message = `${firstPlayer}（${firstTeam}隊） ↔ ${secondPlayer}（${secondTeam}隊）`;
+  updateTeams();
+  if(status) status.textContent = `已交換：${message}`;
+  document.getElementById("result").innerText = message;
+  logOperation("交換球員", message);
+}
+
 function positionLabel(pos){
   return pos==="C" ? "中鋒" : pos==="F" ? "鋒線" : "後衛";
 }
@@ -919,25 +1127,21 @@ function renderTeamLayout(){
   document.getElementById("teamsContainer").innerHTML = ids.map((t)=>`
     <div class="team ${teamClass(t)}">
       <h2>${t} 隊</h2>
-      <div class="leaders" id="${t}_leaders">
-        <div><b>隊長：</b><span id="${t}_captain">尚未抽選</span></div>
-        <div><b>副隊長：</b><span id="${t}_viceCaptain">尚未抽選</span></div>
-      </div>
       <div class="pos"><b>中鋒：</b><div id="${t}_C"></div></div>
       <div class="pos"><b>鋒線：</b><div id="${t}_F"></div></div>
       <div class="pos"><b>後衛：</b><div id="${t}_G"></div></div>
       <h3 id="${t}_total">總人數：0｜星級總分：0</h3>
     </div>
   `).join("");
+  renderTradeTeamOptions();
   renderPickedRows();
   renderBetTeamOptions();
 }
 
-function resetGame(){
+function resetGame(shouldLog=true){
   playerMap = Object.fromEntries(players.map(p=>[p.name,p]));
   pools = buildPools();
   teams = Object.fromEntries(teamIds().map((t)=>[t,{C:[],F:[],G:[]}])); 
-  leaders = Object.fromEntries(teamIds().map((t)=>[t,{captain:"", viceCaptain:""}]));
   angle=0; spinning=false;
   matchFinished = false;
   gameEnded = false;
@@ -948,12 +1152,14 @@ function resetGame(){
   });
   cancelPendingBets("分隊已重置");
   document.getElementById("result").innerText="";
+  const tradeStatus = document.getElementById("tradeStatus");
+  if(tradeStatus) tradeStatus.textContent = "分隊後即可選擇兩位球員交換";
   updateTeams();
   updateSettlementVisibility();
   updateBetControlsState();
   updateScoreControlsState();
   draw();
-  logOperation("重置", "已重置並重新分隊");
+  if(shouldLog) logOperation("重置", "已重置並重新分隊");
 }
 function changeTeamCount(){
   teamCount = Number(document.getElementById("teamCountSelect").value || "2");
@@ -1060,57 +1266,6 @@ async function syncOpLogsToGitHub(){
   renderSyncStatus();
 }
 
-function ensureLeadersState(){
-  for(const team of teamIds()){
-    if(!leaders[team]) leaders[team] = {captain:"", viceCaptain:""};
-  }
-}
-
-function shuffleArray(values){
-  const array = [...values];
-  for(let index = array.length - 1; index > 0; index--){
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [array[index], array[swapIndex]] = [array[swapIndex], array[index]];
-  }
-  return array;
-}
-
-function drawLeaders(){
-  if(spinning){
-    alert("抽籤進行中，請先等分隊完成");
-    return;
-  }
-  ensureLeadersState();
-  for(const team of teamIds()){
-    const members = allTeamPlayers(team);
-    if(members.length < 2){
-      alert(`${team} 隊的人數至少要 2 人，才能抽隊長和副隊長`);
-      return;
-    }
-  }
-  for(const team of teamIds()){
-    const members = allTeamPlayers(team);
-    const shuffled = shuffleArray(members);
-    leaders[team] = {
-      captain: shuffled[0] || "",
-      viceCaptain: shuffled[1] || ""
-    };
-  }
-  updateTeams();
-  document.getElementById("result").innerText = "隊長／副隊長已抽出";
-  logOperation("抽隊長", "已為各隊抽出隊長／副隊長");
-}
-
-function resetLeaders(){
-  ensureLeadersState();
-  for(const team of teamIds()){
-    leaders[team] = {captain:"", viceCaptain:""};
-  }
-  updateTeams();
-  document.getElementById("result").innerText = "隊長／副隊長已清除";
-  logOperation("清除", "已清除隊長／副隊長");
-}
-
 function hasConflict(player, team){
   const members = allTeamPlayers(team);
   for(const pair of conflicts){
@@ -1151,16 +1306,6 @@ function assign(player,pos){
 
 function updateTeams(){
   for(const t of teamIds()){
-    const captain = leaders[t]?.captain || "";
-    const viceCaptain = leaders[t]?.viceCaptain || "";
-    const captainText = captain || "尚未抽選";
-    const viceCaptainText = viceCaptain || "尚未抽選";
-    const captainStars = captain ? `（${starText(captain)}）` : "";
-    const viceCaptainStars = viceCaptain ? `（${starText(viceCaptain)}）` : "";
-    const captainEl = document.getElementById(`${t}_captain`);
-    const viceCaptainEl = document.getElementById(`${t}_viceCaptain`);
-    if(captainEl) captainEl.textContent = `${captainText}${captainStars}`;
-    if(viceCaptainEl) viceCaptainEl.textContent = `${viceCaptainText}${viceCaptainStars}`;
     for(const p of ["C","F","G"]){
       document.getElementById(`${t}_${p}`).innerHTML =
         teams[t][p].map(playerChipHtml).join("");
@@ -1168,6 +1313,7 @@ function updateTeams(){
     document.getElementById(`${t}_total`).innerText = `總人數：${total(t)}｜星級總分：${teamStarTotal(t)}`;
   }
   attachPlayerAvatarFallbacks();
+  refreshTradePlayerOptions();
 
   const left = Object.entries(pools).map(([p,arr])=>{
     return `${positionLabel(p)}剩餘 ${arr.length} 人`;
@@ -1180,7 +1326,8 @@ function updateTeams(){
   document.getElementById("note").innerHTML =
     `目前：${teamIds().map((t)=>`${t}隊 ${total(t)} 人（${teamStarTotal(t)}★）`).join("，")}` +
     `，人數差距 ${diff}，星級差距 ${starDiff}<br>${left}<br>` +
-    `提醒：目前名單只保留 06/23（含全程）。<br>隊長／副隊長可在分隊完成後直接抽選。`;
+    `提醒：目前名單只保留 06/23（含全程）。`;
+  renderParticipantSelector();
   renderRosterGallery();
   renderPickedRows();
   refreshBetPanel();
@@ -1404,18 +1551,6 @@ function loadPlayersFromArrayBuffer(buffer, sourceLabel){
   return true;
 }
 
-async function autoLoadDefaultSheet(){
-  const defaultPath = "./data/內運週二團第二季試辦比賽.xlsx";
-  try{
-    const res = await fetch(defaultPath);
-    if(!res.ok) return;
-    const buffer = await res.arrayBuffer();
-    loadPlayersFromArrayBuffer(buffer, "內運週二團第二季試辦比賽.xlsx");
-  }catch(e){
-    // 在 file:// 或路徑不可達時，保留手動上傳
-  }
-}
-
 const xlsxInput = document.getElementById("xlsxInput");
 if(xlsxInput){
   xlsxInput.addEventListener("change", (event)=>{
@@ -1434,7 +1569,6 @@ window.addEventListener("storage", (event)=>{
 
 renderTeamLayout();
 resetGame();
-autoLoadDefaultSheet();
 </script>
 </body>
 </html>

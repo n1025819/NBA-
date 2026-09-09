@@ -43,7 +43,6 @@ button,select{
 }
 button{background:#eee;box-shadow:0 6px 0 #999}
 #assignBtn{background:linear-gradient(180deg,#ffdf45,#f2a900);box-shadow:0 6px 0 #9a6500}
-#leaderBtn{background:#44d17a;box-shadow:0 6px 0 #13783b}
 #resetBtn{background:#ddd;box-shadow:0 6px 0 #999}
 #backBtn{background:#8ec5ff;box-shadow:0 6px 0 #4d7fb5}
 .result{font-size:26px;color:#ffcc00;text-align:center;min-height:36px;text-shadow:0 0 12px rgba(255,204,0,.6)}
@@ -56,15 +55,6 @@ button{background:#eee;box-shadow:0 6px 0 #999}
 }
 .team.b{background:linear-gradient(145deg,#C9082A,#570711)}
 .team h2{margin:0 0 8px;text-align:center}
-.leaders{
-  margin:8px 0 10px;
-  padding:8px 10px;
-  border-radius:12px;
-  background:rgba(255,255,255,.1);
-  text-align:left;
-  line-height:1.6;
-}
-.leaders b{color:#ffdd6c}
 .pos{margin:10px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.12)}
 .pos b{color:#ffcc00}
 .player{
@@ -176,7 +166,6 @@ button{background:#eee;box-shadow:0 6px 0 #999}
       </select>
       <button id="assignBtn" onclick="assignSelectedPlayer()">指定到隊伍</button>
       <button id="presetBtn" onclick="applyDefaultSplit()">默認分隊</button>
-      <button id="leaderBtn" onclick="drawLeaders()">抽隊長／副隊長</button>
       <button id="resetBtn" onclick="resetGame()">重置</button>
       <button id="backBtn" onclick="location.href='index.html'">回到抽籤頁</button>
     </div>
@@ -220,9 +209,7 @@ let players = [...defaultPlayers];
 let playerMap = Object.fromEntries(players.map((p)=>[p.name,p]));
 const activeDate = "06/23";
 let teams = {};
-let leaders = {};
 let selectedPlayer = "";
-let leadersDrawing = false;
 const opLogKey = "nba_shared_ops_v1";
 let opLogs = loadOpLogs();
 const syncEndpoint = "http://127.0.0.1:8787/sync";
@@ -275,20 +262,9 @@ function teamIds(){return ["A","B"]}
 function total(team){return teams[team].C.length + teams[team].F.length + teams[team].G.length}
 function allTeamPlayers(team){return [...teams[team].C,...teams[team].F,...teams[team].G]}
 function availablePlayers(){return players.filter((p)=>canJoinDate(p) && !allTeamPlayers("A").includes(p.name) && !allTeamPlayers("B").includes(p.name))}
-function shuffleArray(values){
-  const array = [...values];
-  for(let index = array.length - 1; index > 0; index--){
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [array[index], array[swapIndex]] = [array[swapIndex], array[index]];
-  }
-  return array;
-}
-
 function resetState(){
   teams = Object.fromEntries(teamIds().map((t)=>[t,{C:[],F:[],G:[] }]));
-  leaders = Object.fromEntries(teamIds().map((t)=>[t,{captain:"", viceCaptain:""}]));
   selectedPlayer = "";
-  leadersDrawing = false;
   opLogs = loadOpLogs();
   syncStatusText = "重新同步中";
   renderSyncStatus();
@@ -315,12 +291,6 @@ function resetGame(){
   playerMap = Object.fromEntries(players.map((p)=>[p.name,p]));
   applyDefaultSplit();
   logOperation("重置", "已重置並套用默認分隊");
-}
-
-function ensureLeadersState(){
-  for(const team of teamIds()){
-    if(!leaders[team]) leaders[team] = {captain:"", viceCaptain:""};
-  }
 }
 
 const canvas = document.getElementById("wheel");
@@ -440,7 +410,6 @@ function assignToTeam(playerName, team){
     }
   }
   teams[team][player.pos].push(playerName);
-  leaders[team] = leaders[team] || {captain:"", viceCaptain:""};
   updateAfterChange(`${playerName} → ${team}隊`);
   logOperation("分配球員", `${playerName} → ${team}隊`);
   return true;
@@ -458,46 +427,6 @@ function removeFromTeam(playerName){
       }
     }
   }
-}
-
-function drawLeaders(){
-  if(wheelSpinning || leadersDrawing){
-    return;
-  }
-  leadersDrawing = true;
-  ensureLeadersState();
-  for(const team of teamIds()){
-    const members = allTeamPlayers(team);
-    if(members.length < 2){
-      alert(`${team} 隊至少要有 2 人，才能抽隊長和副隊長`);
-      leadersDrawing = false;
-      return;
-    }
-  }
-  const run = async ()=>{
-    try{
-      for(const team of teamIds()){
-        const captainPool = allTeamPlayers(team);
-        drawWheel(captainPool);
-        const captain = await spinWheel(captainPool);
-        leaders[team].captain = captain || "";
-        updateAfterChange(`${team} 隊隊長：${captain}`);
-        logOperation("抽隊長", `${team} 隊隊長：${captain}`);
-
-        const vicePool = allTeamPlayers(team).filter((name)=>name !== captain);
-        drawWheel(vicePool);
-        const viceCaptain = await spinWheel(vicePool);
-        leaders[team].viceCaptain = viceCaptain || "";
-        updateAfterChange(`${team} 隊副隊長：${viceCaptain}`);
-        logOperation("抽副隊長", `${team} 隊副隊長：${viceCaptain}`);
-      }
-      updateAfterChange("隊長／副隊長已抽出");
-      logOperation("完成", "隊長／副隊長已抽出");
-    }finally{
-      leadersDrawing = false;
-    }
-  };
-  run();
 }
 
 function playerChipHtml(name, team){
@@ -528,10 +457,6 @@ function renderTeamLayout(){
   document.getElementById("teamsContainer").innerHTML = teamIds().map((t)=>`
     <div class="team ${t === "B" ? "b" : ""}">
       <h2>${t} 隊</h2>
-      <div class="leaders">
-        <div><b>隊長：</b><span id="${t}_captain">尚未抽選</span></div>
-        <div><b>副隊長：</b><span id="${t}_viceCaptain">尚未抽選</span></div>
-      </div>
       <div class="pos"><b>中鋒：</b><div id="${t}_C"></div></div>
       <div class="pos"><b>鋒線：</b><div id="${t}_F"></div></div>
       <div class="pos"><b>後衛：</b><div id="${t}_G"></div></div>
@@ -576,12 +501,7 @@ function selectPlayer(name){
 }
 
 function updateTeams(){
-  ensureLeadersState();
   for(const t of teamIds()){
-    const captainEl = document.getElementById(`${t}_captain`);
-    const viceCaptainEl = document.getElementById(`${t}_viceCaptain`);
-    if(captainEl) captainEl.textContent = leaders[t]?.captain ? `${leaders[t].captain}（${starText(leaders[t].captain)}）` : "尚未抽選";
-    if(viceCaptainEl) viceCaptainEl.textContent = leaders[t]?.viceCaptain ? `${leaders[t].viceCaptain}（${starText(leaders[t].viceCaptain)}）` : "尚未抽選";
     for(const p of ["C","F","G"]){
       const area = document.getElementById(`${t}_${p}`);
       if(area) area.innerHTML = teams[t][p].map((name)=>playerChipHtml(name, t)).join("");
