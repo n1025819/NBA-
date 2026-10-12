@@ -11,6 +11,8 @@ const expectedPlayers = [
   { name: "Simon", pos: "G" },
   { name: "Kai", pos: "G", photoBase: "kai" },
   { name: "Kyle", pos: "G" },
+  { name: "小保", pos: "C", stars: 5 },
+  { name: "Jeff", pos: "F" },
 ];
 
 function readDefaultPlayers(page) {
@@ -34,6 +36,9 @@ for (const page of pages) {
     const actual = players.find((player) => player.name === expected.name);
     assert.ok(actual, `${expected.name} must appear in ${page}`);
     assert.equal(actual.pos, expected.pos, `${expected.name} position in ${page}`);
+    if (expected.stars) {
+      assert.equal(actual.stars, expected.stars, `${expected.name} stars in ${page}`);
+    }
     if (expected.photoBase) {
       assert.equal(
         photoAliases[expected.name],
