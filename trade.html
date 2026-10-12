@@ -201,7 +201,11 @@ const defaultPlayers = [
   {name:"Darren", pos:"F", time:"全程", date:"06/30", stars:3},
   {name:"Jason", pos:"F", time:"全程", date:"全程", stars:3},
   {name:"Carmelo", pos:"G", time:"全程", date:"全程", stars:3},
-  {name:"Jack", pos:"F", time:"全程", date:"06/23", stars:3}
+  {name:"Jack", pos:"F", time:"全程", date:"06/23", stars:3},
+  {name:"James", pos:"F", time:"全程", date:"全程", stars:3},
+  {name:"Rex", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"Simon", pos:"G", time:"全程", date:"全程", stars:3},
+  {name:"Kai", pos:"G", time:"18:00-19:00", date:"06/23", stars:5}
 ];
 
 let players = [...defaultPlayers];
@@ -241,7 +245,10 @@ function photoCandidates(name){
   const raw = String(name || "").trim();
   const compact = raw.replace(/\s+/g,"");
   const normalizedParens = raw.replace(/\s*\(\s*/g,"(").replace(/\s*\)\s*/g,")");
-  const baseNames = [...new Set([raw, compact, normalizedParens])];
+  const photoAliases = {
+    Kai: "kai"
+  };
+  const baseNames = [...new Set([raw, compact, normalizedParens, photoAliases[raw]].filter(Boolean))];
   const exts = ["png","jpg","jpeg","webp"];
   const candidates = [];
   for(const base of baseNames){
